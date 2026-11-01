@@ -4,7 +4,7 @@
 
 [在线作品集](https://lab.myapi.pw/) · [GitHub 仓库](https://github.com/0xzcboy/moyu-workshop)
 
-收录三件真实作品；提示词为按成品重建的复现参考，并非历史原始输入。**只有展厅新编写的代码采用 MIT；原始作品、提示词、封面和品牌 Logo 不包含在 MIT 授权中。** 查看源码不等于获得再分发或商用许可。
+收录四件真实作品；三件浏览器作品的提示词为按成品重建的复现参考，MV 则附作者提供的原始提示词。**只有展厅新编写的代码采用 MIT；原始作品、视频、歌曲音轨、提示词、封面和品牌 Logo 不包含在 MIT 授权中。** 查看源码不等于获得再分发或商用许可。
 
 ![摸鱼工坊作品预览](public/covers/seasons-planet.jpg)
 
@@ -35,6 +35,7 @@ npm run preview
 | 四季掌心星球 | Three.js 交互世界 | 按成品重建，非原始记录 |
 | 金门大桥 | Three.js 实时场景 | 按成品重建，非原始记录 |
 | 雨中站台 | Canvas / Web Audio 十秒动画 | 按成品重建，非原始记录 |
+| 把回忆拼好给你 | 6 分 21 秒横屏 MV | 作者提供的原始提示词，仅整理断行与标点 |
 
 三维作品在电脑端体验较完整；星球原作依赖键盘行走，金门大桥原作面板较宽。展厅本身已适配手机，但没有擅自重写原作品的触屏控制。
 
@@ -45,9 +46,10 @@ npm run preview
 - 作品内容、提示词、标签和归档说明：`src/data/works.ts`。每件作品一条记录；详情页由数据自动生成。
 - 作品原始源码：`projects/<slug>/index.html`。
 - 实际运行封面：`public/covers/<slug>.jpg`。
+- 网页视频：`public/videos/<slug>.mp4`；MV 原片为 1080p，站内副本压缩为 720p H.264 / AAC，并启用 faststart。首页不加载视频，详情页点击后播放。
 - 展厅样式：`src/styles/global.css`。
 
-添加作品后，在首页分类按钮与页头数量中同步更新分类和件数；准备脚本会自动生成演示、源码下载和 Markdown 提示词下载。目前准备脚本只针对单文件 HTML 作品，若有相对引用素材，应先扩展脚本复制同目录素材。
+首页分类按钮与页头数量根据作品数据自动更新。准备脚本为浏览器作品生成演示与源码下载，为全部作品生成 Markdown 提示词下载。视频作品设置 `video` 路径，不生成不存在的 HTML 或源码链接；作者原始提示词设置 `promptSource: 'original'`。HTML 作品若有相对引用素材，应先扩展脚本复制同目录素材。
 
 所有演示链接显式包含 `index.html`，兼容 Astro 开发服务和静态托管。归档源码保持原样；准备脚本只把生成演示里的固定 Three.js 0.160.0 CDN 地址换成本地路径。其他依赖不会自动转换，需要单独检查。
 
@@ -59,7 +61,7 @@ npm run preview
 2. 推送项目到 `main` 分支（不要上传 `node_modules/`、`.env` 或私密素材）。
 3. 仓库 Settings → Pages 的 Source 应为 GitHub Actions。
 4. 执行 `.github/workflows/pages.yml`。工作流将站点域名固定为 `https://lab.myapi.pw`，并从 Pages 配置取得子路径；自动生成 GitHub 入口。更换域名时需同步修改工作流的 `SITE_URL`。
-5. 发布后验证首页、三个详情页、独立演示、源码下载和提示词复制。部署进度见仓库 Actions。
+5. 发布后验证首页、四个详情页、独立演示、源码下载、MV 播放与跳转进度、提示词复制。部署进度见仓库 Actions。
 
 本地模拟项目仓库路径：
 
@@ -90,7 +92,7 @@ npm run capture:covers
 
 截封面前先运行开发服务。截图脚本在浏览器会话中隐藏 HUD，星球仅拍摄时拉远镜头，不修改 `projects/`。若测试环境没有 Edge，请调整 `playwright.config.ts` 和截图脚本中的 channel。
 
-测试覆盖分类恢复、三件作品的资源和来源标签、复制成功与失败提示、手机无横向溢出、首页无三维实例及外部资源。在线演示的实时画面另通过截图脚本检查运行错误。
+测试覆盖分类恢复、浏览器作品的资源和来源标签、MV 实际播放与跳转进度、原始提示词标签与下载、复制成功与失败提示、手机无横向溢出、首页无三维实例及视频或外部资源。在线演示的实时画面另通过截图脚本检查运行错误。
 
 ## 目录与授权
 
@@ -99,6 +101,7 @@ src/data/works.ts           作品资料与复现参考
 src/pages/                 首页、详情页、关于页、404
 projects/                  原样归档源码
 public/covers/             实际运行截图
+public/videos/             网页播放视频（非 MIT 授权素材）
 scripts/prepare-demos.mjs   生成本地依赖演示与下载
 scripts/capture-covers.mjs  真实浏览器截封面
 tests/                     浏览器回归测试

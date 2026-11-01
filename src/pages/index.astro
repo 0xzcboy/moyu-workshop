@@ -3,6 +3,8 @@ import Layout from '../layouts/Layout.astro';
 import { works } from '../data/works';
 import { url } from '../lib/site';
 const featured = works[0];
+const categories = [...new Set(works.map(work => work.category))];
+const count = (value: number) => String(value).padStart(2, '0');
 ---
 <Layout>
   <main id="main" class="shell">
@@ -12,17 +14,17 @@ const featured = works[0];
     </section>
 
     <section id="works" class="works-section" aria-labelledby="works-title">
-      <div class="section-top"><h2 id="works-title">创作档案 <span>/ SELECTED WORKS</span></h2><span class="archive-count"><span data-result-count>03</span> 件作品，持续生长中 ↗</span></div>
-      <div class="filter-bar"><div class="filters" role="group" aria-label="按作品类型筛选"><button type="button" class="filter active" data-filter="all" aria-pressed="true">全部作品 <span>03</span></button><button type="button" class="filter" data-filter="交互世界" aria-pressed="false">交互世界 <span>02</span></button><button type="button" class="filter" data-filter="叙事动画" aria-pressed="false">叙事动画 <span>01</span></button></div><span class="filter-hint">每一个成品，都有迹可循。</span></div>
-      <p class="sr-only" aria-live="polite" data-filter-status>显示全部 3 件作品</p>
+      <div class="section-top"><h2 id="works-title">创作档案 <span>/ SELECTED WORKS</span></h2><span class="archive-count"><span data-result-count>{count(works.length)}</span> 件作品，持续生长中 ↗</span></div>
+      <div class="filter-bar"><div class="filters" role="group" aria-label="按作品类型筛选"><button type="button" class="filter active" data-filter="all" aria-pressed="true">全部作品 <span>{count(works.length)}</span></button>{categories.map(category => <button type="button" class="filter" data-filter={category} aria-pressed="false">{category} <span>{count(works.filter(work => work.category === category).length)}</span></button>)}</div><span class="filter-hint">每一个成品，都有迹可循。</span></div>
+      <p class="sr-only" aria-live="polite" data-filter-status>显示全部 {works.length} 件作品</p>
       <div class="work-grid">
         {works.map((work, index) => <article class:list={['work-card', { featured: index === 0 }]} data-category={work.category}>
           <a class="work-image" style={`--cover-color:${work.color}`} href={url(`works/${work.slug}/`)} aria-label={`查看作品：${work.title}`}>
-            <img src={url(`covers/${work.cover}`)} alt={`${work.title}的实际运行画面`} width="1440" height="900" loading={index === 0 ? 'eager' : 'lazy'} fetchpriority={index === 0 ? 'high' : 'auto'} />
+            <img src={url(`covers/${work.cover}`)} alt={`${work.title}的${work.video ? '视频截图' : '实际运行画面'}`} width="1440" height={work.video ? 810 : 900} loading={index === 0 ? 'eager' : 'lazy'} fetchpriority={index === 0 ? 'high' : 'auto'} />
             <span class="image-badge">{index === 0 ? '精选实验' : work.category}</span><span class="image-open" aria-hidden="true">↗</span>
             {index === 0 && <div class="feature-caption"><span>EXPERIMENT {featured.number} / INTERACTIVE WORLD</span><strong>一颗星球，四种心情。</strong><p>走慢一点，就能遇见下一个季节。</p></div>}
           </a>
-          <div class="work-meta"><span class="work-number">{work.number} /</span><div><a href={url(`works/${work.slug}/`)}><h3>{work.title}</h3></a><p>{work.description}</p><div class="work-tags">{work.tools.slice(0, 2).map(tool => <span>{tool}</span>)}<span class="prompt-tag">复现参考提示词</span></div></div><a class="card-arrow" href={url(`works/${work.slug}/`)} aria-label={`查看${work.title}的创作档案`}>↗</a></div>
+          <div class="work-meta"><span class="work-number">{work.number} /</span><div><a href={url(`works/${work.slug}/`)}><h3>{work.title}</h3></a><p>{work.description}</p><div class="work-tags">{work.tools.slice(0, 2).map(tool => <span>{tool}</span>)}<span class="prompt-tag">{work.promptSource === 'original' ? '作者原始提示词' : '复现参考提示词'}</span></div></div><a class="card-arrow" href={url(`works/${work.slug}/`)} aria-label={`查看${work.title}的创作档案`}>↗</a></div>
         </article>)}
       </div>
     </section>

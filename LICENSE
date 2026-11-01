@@ -3,7 +3,7 @@ MIT License
 Copyright (c) 2026 Moyu Creative Lab contributors
 
 This license covers newly authored gallery source code, build scripts, tests,
-and documentation only. It excludes projects/, public/covers/, work prompt
+and documentation only. It excludes projects/, public/covers/, public/videos/, work prompt
 texts in src/data/works.ts, public/logo.png, and generated copies of those materials. Those
 materials have no redistribution license assigned. Third-party
 software retains its respective license. See THIRD_PARTY_NOTICES.md.

@@ -3,7 +3,9 @@ export type Work = {
   number: string;
   title: string;
   english: string;
-  category: '交互世界' | '叙事动画';
+  category: '交互世界' | '叙事动画' | '音乐影像';
+  video?: string;
+  promptSource?: 'original';
   description: string;
   tools: string[];
   cover: string;
@@ -14,7 +16,7 @@ export type Work = {
   process: string[];
 };
 
-// These are reconstruction guides, not recovered original conversations.
+// Prompts are reconstruction guides unless explicitly marked as author-provided originals.
 export const works: Work[] = [
   {
     slug: 'seasons-planet', number: '01', title: '把四季，装进一颗星球',
@@ -45,5 +47,17 @@ export const works: Work[] = [
     notes: '画面和声音均由浏览器代码生成，无需外部素材。浏览器要求用户点击后才能播放声音。原始生成模型与对话尚未核实。',
     prompt: '用单文件 HTML 和 Canvas 2D 制作一段十秒循环的剪纸风动画短片，主题是「雨中站台」。\n\n雨夜的火车站台上，黄色纸箱小人把红伞递给蓝色小人，自己走进雨中登上火车，在车窗写下「保重」。列车慢慢开走，两个人含泪挥手。\n\n用层叠纸片、柔和投影和简洁造型表达情绪，画面以蓝灰色为主，红伞和黄色角色作为视觉焦点。让云、雨、人物与列车有清晰的前后层次，动作连贯。\n\n用 Web Audio 生成雨声、列车声和适度配乐，用户点击后开启声音，再次点击可暂停与继续。支持用 URL 参数 t 定格某一秒，便于检查画面。不要使用外部图片或音频文件。',
     process: ['保留现有 Canvas 和 Web Audio 源码，声音由用户点击后启用。', '利用原作的 t 参数定格实际画面，制作站台场景封面。', '整理叙事、视觉与交互要求，形成可复制的复现参考。'],
+  },
+  {
+    slug: 'memory-pop-up-book', number: '04', title: '把回忆拼好给你',
+    english: 'MEMORIES, PAGE BY PAGE', category: '音乐影像',
+    description: '课桌上的立体书，把烟花、星海与红线折进书页。一支剪纸叠层与水彩纸纹理的横屏 MV。',
+    tools: ['剪纸立体书', '歌曲 MV', '1920×1080 原片'],
+    cover: 'memory-pop-up-book.jpg', color: '#e8dac0',
+    video: 'videos/memory-pop-up-book.mp4', promptSource: 'original',
+    controls: '点击播放器观看，支持暂停、进度拖动、音量调整和全屏。时长 6 分 21 秒；横屏观看更完整，播放前请留意设备音量。',
+    notes: '本页提供原片的 720p 网页压缩版，保留横屏比例与音轨，原始视频未改动。以下制作路线来自作者提供的提示词；本次未归档生成脚本，也未核实实际生成模型。歌曲及录音权利归各自权利人所有，不随展厅代码开放授权。',
+    prompt: '为歌曲《把回忆拼好给你》做一支横屏MV。一本立体书摊在学校课桌上，背景是虚化的教室，窗外斜进一道暖光。画面是剪纸叠层加水彩纸纹理的扁平插画，每层纸带柔和投影，主角是一对Q版情侣。\n\n每句歌词挑一个关键词，用书页弹起的纸艺来演：开场四朵纸烟花接连炸开；灰色高楼一拍弹起一栋把她围住；墙化成星空，许愿纸星星升起；纸光芒炸开，花一路开过去；纸船和一排排立起的海浪；回忆书页快翻；铅笔画被涂灰，又被橡皮擦回彩色；纸杯电话里爱心顺着线跑；烟花烧成灰又倒带开满；红线缠住她；两个钟面转盘反着转。\n\n结尾她给白纸般的他上色，两人牵手，书合上，红线捆成礼物。镜头从中远景慢慢推近，翻页转场，书页和道具跟着鼓点弹动，歌词逐字像盖章一样印在书页上。\n\n使用Node.js通过puppeteer-core开无头Chrome，在p5.js画布上逐帧绘制，最后用ffmpeg合成原曲出片。',
+    process: ['收录作者提供的横屏 MV 成片，原始视频保持不变，另行制作适合网页播放的 720p 版本。', '从视频实际画面截取封面，使用原生播放器；首页只展示封面，不自动加载或播放视频。', '归档作者本次提供的原始提示词，仅整理断行与标点；不将提示词要求等同于已核实的生成过程，不虚构源码入口。'],
   },
 ];

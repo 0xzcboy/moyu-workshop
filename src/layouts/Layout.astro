@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import { site, url } from '../lib/site';
+import { works } from '../data/works';
 const { title = site.name, description = site.description, image = 'seasons-planet.jpg' } = Astro.props;
 const pageTitle = title === site.name ? `${site.name} · ${site.englishName}` : `${title} · ${site.name}`;
 ---
@@ -26,7 +27,7 @@ const pageTitle = title === site.name ? `${site.name} · ${site.englishName}` : 
     <header class="site-header shell">
       <a class="brand" href={url()} aria-label={`${site.name}首页`}><img class="brand-logo" src={url('logo.png')} alt="" width="52" height="52" /><span>{site.name}<small>{site.englishName}</small></span></a>
       <nav aria-label="主导航">
-        <a href={url('#works')}>作品集 <span>03</span></a>
+        <a href={url('#works')}>作品集 <span>{String(works.length).padStart(2, '0')}</span></a>
         <a href={url('about/')}>关于这里</a>
         {site.repository ? <a class="nav-github" href={site.repository} target="_blank" rel="noreferrer">GitHub ↗</a> : <a class="nav-github" href={url('about/#open-source')}>开源说明 ↗</a>}
       </nav>
