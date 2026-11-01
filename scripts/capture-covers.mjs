@@ -5,7 +5,7 @@ const origin = process.env.PREVIEW_URL || 'http://127.0.0.1:4321';
 const browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist'] });
 await mkdir('public/covers', { recursive: true });
 try {
-  for (const slug of ['seasons-planet', 'golden-gate', 'rain-platform']) {
+  for (const slug of process.argv.slice(2).length ? process.argv.slice(2) : ['seasons-planet', 'golden-gate', 'rain-platform', 'tearable-boarding-pass']) {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -26,6 +26,12 @@ try {
       await page.waitForFunction(() => document.querySelector('canvas') && (!document.querySelector('#loading') || document.querySelector('#loading')?.style.opacity === '0'), { timeout: 90000 });
       await page.waitForTimeout(2000);
       await page.addStyleTag({ content: '#panel,#stats,#hint,#toggle,#loading{display:none!important}' });
+    } else if (slug === 'tearable-boarding-pass') {
+      await page.locator('.stub').waitFor();
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(1000);
+      // Only the captured image hides the editor; the published demo keeps it.
+      await page.addStyleTag({ content: '.dialkit-root{display:none!important}' });
     } else { await page.waitForTimeout(1000); }
     if (errors.length) throw new Error(`${slug}: ${errors.join('; ')}`);
     await page.screenshot({ path: `public/covers/${slug}.jpg`, type: 'jpeg', quality: 90 });

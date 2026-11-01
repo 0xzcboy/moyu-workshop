@@ -22,6 +22,7 @@ jobs:
       - uses: actions/configure-pages@v5
         id: pages
       - run: npm ci
+      - run: npm ci --prefix projects/tearable-boarding-pass
       - run: npm run build
         env:
           SITE_URL: https://lab.myapi.pw
