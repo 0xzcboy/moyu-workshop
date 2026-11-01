@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>金门大桥 · Three.js 实时三维场景</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f16;
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif; color: #e9eef4; }
+  canvas { display: block; }
+  #panel { position: fixed; top: 16px; left: 16px; width: 300px; padding: 16px 18px 14px;
+    background: rgba(12, 16, 24, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35); user-select: none; transition: transform .35s ease; }
+  #panel.collapsed { transform: translateX(calc(-100% - 24px)); }
+  #panel h1 { margin: 0; font-size: 21px; letter-spacing: 3px; color: #ff8a6a; }
+  #panel .sub { margin: 4px 0 10px; font-size: 12px; opacity: .7; line-height: 1.6; }
+  .row { margin: 9px 0; }
+  .lab { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 3px; }
+  .lab span:last-child { color: #ffb199; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: #d9472f; cursor: pointer; }
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .btns button { padding: 7px 0; font-size: 13px; color: #e9eef4; background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; cursor: pointer; font-family: inherit; }
+  .btns button:hover { background: rgba(255,255,255,0.14); }
+  .btns button.on { background: #c0362c; border-color: #e0573f; }
+  .facts { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);
+    font-size: 12px; line-height: 1.75; opacity: .8; }
+  #stats { position: fixed; right: 16px; top: 16px; font-size: 12px; padding: 7px 11px; line-height: 1.6;
+    background: rgba(12,16,24,.55); border-radius: 8px; font-variant-numeric: tabular-nums; text-align: right; }
+  #toggle { position: fixed; left: 16px; bottom: 16px; padding: 6px 12px; font-size: 12px; color: #e9eef4;
+    background: rgba(12,16,24,.6); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; cursor: pointer; font-family: inherit; }
+  #hint { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); font-size: 12px; opacity: .7;
+    text-shadow: 0 1px 3px rgba(0,0,0,.6); white-space: nowrap; pointer-events: none; }
+  #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 10;
+    background: #0b0f16; font-size: 16px; letter-spacing: 4px; transition: opacity .9s; }
+</style>
+</head>
+<body>
+<div id="loading">正在架设金门大桥…</div>
+<div id="panel">
+  <h1>金门大桥</h1>
+  <div class="sub">Golden Gate Bridge · 旧金山金门海峡<br>左键拖动旋转 · 滚轮缩放 · 右键平移</div>
+  <div class="row"><div class="lab"><span>时段</span><span id="vTime"></span></div>
+    <input id="time" type="range" min="0" max="1" step="0.001" value="0.12"></div>
+  <div class="row"><div class="lab"><span>雾气浓度</span><span id="vFog"></span></div>
+    <input id="fog" type="range" min="0" max="1" step="0.01" value="0.4"></div>
+  <div class="row"><div class="lab"><span>雾气流速</span><span id="vWind"></span></div>
+    <input id="wind" type="range" min="0" max="3" step="0.01" value="1"></div>
+  <div class="row"><div class="lab"><span>风浪强度</span><span id="vWave"></span></div>
+    <input id="wave" type="range" min="0" max="2" step="0.01" value="1"></div>
+  <div class="row"><div class="lab"><span>车流量</span><span id="vCars"></span></div>
+    <input id="cars" type="range" min="0" max="600" step="10" value="280"></div>
+  <div class="row"><div class="lab"><span>车速倍率</span><span id="vSpeed"></span></div>
+    <input id="speed" type="range" min="0.2" max="3" step="0.01" value="1"></div>
+  <div class="lab" style="margin-top:12px"><span>镜头</span><span></span></div>
+  <div class="btns">
+    <button data-cam="free" class="on">自由视角</button>
+    <button data-cam="orbit">环绕巡航</button>
+    <button data-cam="car">随车行驶</button>
+    <button data-cam="tower">塔顶俯瞰</button>
+  </div>
+  <div class="facts">主跨 1280 米 · 桥塔高出水面 227 米<br>桥面距水面约 67 米 · 全长约 2737 米<br>1937 年通车，涂装色为"国际橘"</div>
+</div>
+<div id="stats"></div>
+<button id="toggle">隐藏面板</button>
+<div id="hint">金门海峡常年被太平洋平流雾笼罩，桥塔时常只露出塔尖</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// ================= 基础参数（单位：米） =================
+const DECK_Y = 67, TOWER_H = 227, HALF_MAIN = 640, SIDE = 343, END = HALF_MAIN + SIDE;
+const CABLE_Z = 14.2, ROAD_LEN = 1460, LAND_CUT = 1330;
+const params = { fog: 0.4, wind: 1, wave: 1, cars: 280, speed: 1, time: 0.12 };
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0xcdd5da, 0.0003);
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 2, 30000);
+camera.position.set(-1050, 150, 760);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 90, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.minDistance = 20;
+controls.maxDistance = 4500;
+
+// ================= 工具函数 =================
+function hash2(x, y) { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); }
+function vnoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi), b = hash2(xi + 1, yi), c = hash2(xi, yi + 1), d = hash2(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, y) { let s = 0, a = 0.5, f = 1; for (let i = 0; i < 5; i++) { s += a * vnoise(x * f, y * f); f *= 2.03; a *= 0.5; } return s; }
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const rand = (a, b) => a + Math.random() * (b - a);
+
+// ================= 天空 =================
+const skyUniforms = {
+  zenith: { value: new THREE.Color() }, horizon: { value: new THREE.Color() },
+  sunDir: { value: new THREE.Vector3(0, 1, 0) }, sunColor: { value: new THREE.Color() }, night: { value: 0 }
+};
+const sky = new THREE.Mesh(new THREE.SphereGeometry(20000, 48, 24), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, uniforms: skyUniforms,
+  vertexShader: `varying vec3 vDir;
+    void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform vec3 zenith, horizon, sunColor, sunDir; uniform float night; varying vec3 vDir;
+    float h(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453); }
+    void main(){
+      vec3 d = normalize(vDir); float y = d.y;
+      vec3 col = mix(horizon, zenith, pow(smoothstep(-0.02, 0.6, y), 0.7));
+      float sd = max(dot(d, sunDir), 0.0);
+      col += sunColor * (pow(sd, 8.0) * 0.35 + pow(sd, 64.0) * 0.6) * (1.0 - night * 0.75);
+      col += sunColor * smoothstep(0.9994, 0.9998, sd) * 8.0;
+      vec3 cell = floor(d * 380.0);
+      float s = step(0.9975, h(cell)) * smoothstep(0.05, 0.35, y) * night;
+      col += vec3(s) * (0.6 + 0.4 * sin(h(cell + 1.0) * 50.0));
+      gl_FragColor = vec4(col, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`
+}));
+sky.frustumCulled = false;
+scene.add(sky);
+
+// ================= 灯光 =================
+const hemi = new THREE.HemisphereLight(0xcfe3ff, 0x4a3f33, 0.8);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 2.5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -1300, right: 1300, top: 650, bottom: -650, near: 10, far: 7000 });
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.6;
+scene.add(sun, sun.target);
+
+// ================= 海水（自定义着色器：多频波浪 + 菲涅尔反射 + 桥墩尾流泡沫） =================
+const waterUniforms = {
+  uTime: { value: 0 }, uAmp: { value: 1 },
+  uZenith: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() },
+  uDeep: { value: new THREE.Color(0x0d3240) }, uAmbient: { value: 1 },
+  uLightDir: { value: new THREE.Vector3(0, 1, 0) }, uLightColor: { value: new THREE.Color() },
+  uFogColor: { value: new THREE.Color() }, uFogDensity: { value: 0.0003 }, uTowerX: { value: HALF_MAIN }
+};
+const WATER_VS = `uniform float uTime, uAmp; varying vec3 vWorld; varying float vSwell;
+  void main(){
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    float fade = 1.0 - smoothstep(3000.0, 9000.0, length(wp.xz - cameraPosition.xz));
+    float h = sin(dot(wp.xz, vec2(0.0105, 0.0042)) + uTime * 0.95) * 1.1
+            + sin(dot(wp.xz, vec2(-0.0062, 0.0118)) + uTime * 0.78) * 0.8
+            + sin(dot(wp.xz, vec2(0.019, -0.012)) + uTime * 1.35) * 0.45;
+    wp.y += h * uAmp * fade;
+    vSwell = h;
+    vWorld = wp.xyz;
+    gl_Position = projectionMatrix * viewMatrix * wp;
+  }`;
+const WATER_FS = `uniform float uTime, uAmp, uAmbient, uFogDensity, uTowerX;
+  uniform vec3 uZenith, uHorizon, uDeep, uLightDir, uLightColor, uFogColor;
+  varying vec3 vWorld; varying float vSwell;
+  float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
+    return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y); }
+  float sdBox(vec2 p, vec2 b){ vec2 d = abs(p) - b; return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0); }
+  void main(){
+    vec2 p = vWorld.xz;
+    float dist = length(cameraPosition - vWorld);
+    // 解析法线：大涌浪 + 一组满足深水色散关系的细波
+    vec2 g = vec2(0.0);
+    g += 1.1 * vec2(0.0105, 0.0042) * cos(dot(p, vec2(0.0105, 0.0042)) + uTime * 0.95);
+    g += 0.8 * vec2(-0.0062, 0.0118) * cos(dot(p, vec2(-0.0062, 0.0118)) + uTime * 0.78);
+    g += 0.45 * vec2(0.019, -0.012) * cos(dot(p, vec2(0.019, -0.012)) + uTime * 1.35);
+    float freq = 0.03, amp = 0.55;
+    for (int i = 0; i < 14; i++) {
+      float fi = float(i);
+      float ang = 1.5708 + (fract(sin(fi * 91.7) * 4375.85) - 0.5) * 2.2;
+      vec2 k = vec2(cos(ang), sin(ang)) * freq;
+      float w = sqrt(9.8 * freq);
+      float lod = clamp(1.0 - dist * freq / 55.0, 0.0, 1.0);
+      g += amp * k * cos(dot(k, p) + w * uTime + fi * 1.7) * lod * 1.6;
+      freq *= 1.37; amp *= 0.71;
+    }
+    float nd = clamp(1.0 - dist / 600.0, 0.0, 1.0);
+    vec2 np = p * 0.35 + vec2(0.0, uTime * 0.6);
+    g += vec2(noise(np + vec2(0.3, 0.0)) - noise(np - vec2(0.3, 0.0)),
+              noise(np + vec2(0.0, 0.3)) - noise(np - vec2(0.0, 0.3))) * 0.18 * nd;
+    vec3 N = normalize(vec3(-g.x * uAmp, 1.0, -g.y * uAmp));
+    vec3 V = normalize(cameraPosition - vWorld);
+    vec3 R = reflect(-V, N); R.y = abs(R.y);
+    float fres = 0.02 + 0.98 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
+    vec3 skyR = mix(uHorizon, uZenith, pow(clamp(R.y, 0.0, 1.0), 0.55));
+    vec3 deep = uDeep * uAmbient * (0.75 + 0.25 * clamp(vSwell * 0.5 + 0.5, 0.0, 1.0));
+    deep += vec3(0.02, 0.09, 0.08) * uAmbient * pow(max(dot(V, -uLightDir) * 0.5 + 0.5, 0.0), 3.0) * max(vSwell, 0.0);
+    float rl = max(dot(R, uLightDir), 0.0);
+    vec3 col = mix(deep, skyR, fres) + uLightColor * (pow(rl, 600.0) * 6.0 + pow(rl, 40.0) * 0.12);
+    // 桥墩周围的白色泡沫与随潮流拉长的尾流
+    float foam = 0.0;
+    for (int s = -1; s <= 1; s += 2) {
+      vec2 q = p - vec2(float(s) * uTowerX, 0.0);
+      q.y = q.y > 0.0 ? q.y * 0.18 : q.y;
+      float d = sdBox(q, vec2(16.0, 28.0));
+      float n = noise(p * 0.25 + vec2(0.0, -uTime * 1.5)) * 0.6 + noise(p * 0.9 - uTime) * 0.4;
+      foam += (1.0 - smoothstep(0.0, 14.0, d)) * smoothstep(0.35, 0.75, n + (1.0 - smoothstep(0.0, 4.0, d)) * 0.5);
+    }
+    col = mix(col, vec3(0.9) * (0.25 + 0.75 * uAmbient), clamp(foam, 0.0, 1.0) * 0.85);
+    float f = 1.0 - exp(-uFogDensity * uFogDensity * dist * dist);
+    col = mix(col, uFogColor, f);
+    gl_FragColor = vec4(col, 1.0);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }`;
+const water = new THREE.Mesh(new THREE.PlaneGeometry(26000, 26000, 320, 320).rotateX(-Math.PI / 2),
+  new THREE.ShaderMaterial({ uniforms: waterUniforms, vertexShader: WATER_VS, fragmentShader: WATER_FS }));
+water.frustumCulled = false;
+scene.add(water);
+
+// ================= 地形：北岸马林岬角陡峭丘陵，南岸旧金山平缓城区 =================
+function coastHalfWidth(z, side) { return 985 + 0.00011 * z * z + (fbm(z * 0.0021, side * 7.3) - 0.5) * 320; }
+function terrainHeight(x, z) {
+  const side = x > 0 ? 1 : -1;
+  const d = Math.abs(x) - coastHalfWidth(z, side);
+  let h;
+  if (d < 0) h = Math.max(-45, d * 0.08);
+  else if (side > 0) h = 24 * smooth(0, 35, d) + 320 * smooth(0, 1700, d) * (0.45 + fbm(x * 0.0011, z * 0.0011)) + 25 * fbm(x * 0.006, z * 0.006) * smooth(0, 60, d);
+  else h = 12 * smooth(0, 40, d) + 85 * smooth(0, 1200, d) * fbm(x * 0.0009 + 3.1, z * 0.0009) + 8 * fbm(x * 0.008, z * 0.008) * smooth(0, 50, d);
+  // 引道路堑：公路两侧把山体削到桥面以下
+  if (Math.abs(x) > END - 30) {
+    const w = 1 - smooth(24, 75, Math.abs(z));
+    const target = DECK_Y - 2;
+    if (h > target) h += (target - h) * w;
+  }
+  return h;
+}
+{
+  const SIZE = 10000, SEG = 512;
+  const geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG).rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position, colors = new Float32Array(pos.count * 3);
+  const cSand = new THREE.Color(0xc9b38a), cRock = new THREE.Color(0x6f655a), cGrass = new THREE.Color(0x8c8a4e),
+    cGreen = new THREE.Color(0x4f6237), cCity = new THREE.Color(0xa49d92), cSea = new THREE.Color(0x3b3a33), c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i), h = terrainHeight(x, z);
+    pos.setY(i, h);
+    const n = fbm(x * 0.004, z * 0.004);
+    if (h < 0.5) c.copy(cSea);
+    else if (h < 5) c.copy(cSand);
+    else if (x > 0) { c.copy(cGrass).lerp(cGreen, smooth(0.4, 0.7, n)); if (h < 30 + n * 20) c.lerp(cRock, 0.7); }
+    else { c.copy(cGreen).lerp(cCity, smooth(0.35, 0.6, n) * smooth(80, 300, -x - 1000)); if (h < 10) c.lerp(cRock, 0.5); }
+    c.multiplyScalar(0.85 + 0.3 * hash2(x, z));
+    colors.set([c.r, c.g, c.b], i * 3);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+  const terrain = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
+  terrain.receiveShadow = true;
+  scene.add(terrain);
+}
+
+// ================= 旧金山城区建筑与夜间灯火 =================
+const cityLightMat = new THREE.PointsMaterial({ size: 3, color: 0xffc27a, transparent: true, opacity: 0, depthWrite: false });
+{
+  const box = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+  const max = 2600, mesh = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ roughness: 0.85 }), max);
+  const m = new THREE.Matrix4(), col = new THREE.Color(), lights = [];
+  const palette = [0xe8e2d6, 0xd9cfbf, 0xc8c4bd, 0xf1ece2, 0xb9b2a6, 0xd6c3a5];
+  let n = 0;
+  for (let gx = -4800; gx < -1150 && n < max; gx += 46) {
+    for (let gz = -4200; gz < 4200 && n < max; gz += 46) {
+      if (Math.abs(gz) < 260 && gx > -2000) continue; // 普雷西迪奥公园与引道
+      const x = gx + rand(-8, 8), z = gz + rand(-8, 8), h = terrainHeight(x, z);
+      if (h < 4 || Math.abs(x) - coastHalfWidth(z, -1) < 120 || Math.random() < 0.25) continue;
+      const w = rand(14, 32), d = rand(14, 32), ht = rand(7, 22) * (Math.random() < 0.04 ? 3 : 1);
+      m.makeScale(w, ht, d).setPosition(x, h - 2, z);
+      mesh.setMatrixAt(n, m);
+      mesh.setColorAt(n++, col.set(palette[(Math.random() * palette.length) | 0]));
+      for (let k = 0; k < 2; k++) lights.push(x + rand(-w, w) * 0.5, h + rand(1, ht), z + rand(-d, d) * 0.5);
+    }
+  }
+  mesh.count = n;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  // 北岸零散灯光（索萨利托方向）
+  for (let i = 0; i < 900; i++) {
+    const x = rand(1300, 4500), z = rand(800, 4500), h = terrainHeight(x, z);
+    if (h > 3 && h < 120) lights.push(x, h + 2, z);
+  }
+  const lg = new THREE.BufferGeometry();
+  lg.setAttribute('position', new THREE.Float32BufferAttribute(lights, 3));
+  scene.add(new THREE.Points(lg, cityLightMat));
+}
+
+// ================= 金门大桥本体 =================
+// 坐标约定：桥轴沿 x，x<0 为南岸旧金山，x>0 为北岸马林；-z 为太平洋一侧（雾从这里涌入）
+const bridgeMat = new THREE.MeshStandardMaterial({ color: 0xc0362c, roughness: 0.55, metalness: 0.35, emissive: 0xff5a30, emissiveIntensity: 0 });
+const concreteMat = new THREE.MeshStandardMaterial({ color: 0xb7b0a4, roughness: 0.9 });
+const roadMat = new THREE.MeshStandardMaterial({ color: 0x2f3134, roughness: 0.85 });
+const unitBox = new THREE.BoxGeometry(1, 1, 1);
+
+// 把一组盒子（轴对齐或按两点定向的梁）收集为一个 InstancedMesh，减少绘制调用
+class BoxBatch {
+  constructor() { this.mats = []; this._q = new THREE.Quaternion(); this._up = new THREE.Vector3(0, 1, 0); }
+  box(cx, cy, cz, sx, sy, sz) { this.mats.push(new THREE.Matrix4().makeScale(sx, sy, sz).setPosition(cx, cy, cz)); }
+  beam(a, b, tx, tz = tx) {
+    const d = new THREE.Vector3().subVectors(b, a), len = d.length();
+    this._q.setFromUnitVectors(this._up, d.normalize());
+    const m = new THREE.Matrix4().compose(new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5), this._q, new THREE.Vector3(tx, len, tz));
+    this.mats.push(m);
+  }
+  build(mat, shadow = true) {
+    const mesh = new THREE.InstancedMesh(unitBox, mat, this.mats.length);
+    this.mats.forEach((m, i) => mesh.setMatrixAt(i, m));
+    mesh.castShadow = shadow; mesh.receiveShadow = true;
+    scene.add(mesh);
+    return mesh;
+  }
+}
+const steel = new BoxBatch(), concrete = new BoxBatch(), V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+
+// ---------- 主缆线形：主跨为抛物线，边跨为带垂度的斜线 ----------
+const CABLE_TOP = TOWER_H - 4, CABLE_LOW = DECK_Y + 3.5, ANCHOR_Y = DECK_Y + 9, SIDE_SAG = 16;
+function cableY(x) {
+  const ax = Math.abs(x);
+  if (ax <= HALF_MAIN) return CABLE_LOW + (CABLE_TOP - CABLE_LOW) * (ax / HALF_MAIN) ** 2;
+  const u = (ax - HALF_MAIN) / SIDE;
+  return CABLE_TOP + (ANCHOR_Y - CABLE_TOP) * u - SIDE_SAG * 4 * u * (1 - u);
+}
+for (const zs of [-1, 1]) {
+  const pts = [];
+  for (let x = -END; x <= END; x += 8) pts.push(V3(x, cableY(x), zs * CABLE_Z));
+  const cable = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 500, 0.55, 8), bridgeMat);
+  cable.castShadow = true;
+  scene.add(cable);
+}
+// 吊索：间距 15.24 米（50 英尺），每个吊点一对钢丝绳
+for (let x = -END + 15.24; x < END - 5; x += 15.24) {
+  if (Math.abs(Math.abs(x) - HALF_MAIN) < 9) continue;
+  const top = cableY(x);
+  for (const zs of [-1, 1]) for (const dx of [-0.35, 0.35])
+    steel.beam(V3(x + dx, DECK_Y + 0.6, zs * CABLE_Z), V3(x + dx, top, zs * CABLE_Z), 0.16);
+}
+
+// ---------- 桥塔：两根阶梯收分的塔柱 + 四道装饰艺术风格横梁 + 桥面下 X 形斜撑 ----------
+function buildTower(tx) {
+  const segs = [[12, 70, 17, 11], [70, 120, 15, 10], [120, 165, 13.5, 9], [165, 200, 12, 8.2], [200, TOWER_H, 10.5, 7.4]];
+  for (const zs of [-1, 1]) {
+    for (const [y0, y1, sx, sz] of segs) {
+      steel.box(tx, (y0 + y1) / 2, zs * CABLE_Z, sx, y1 - y0, sz);
+      // 塔柱表面竖向肋条，营造凹槽阴影
+      for (const ox of [-sx * 0.28, sx * 0.28]) steel.box(tx + ox, (y0 + y1) / 2, zs * (CABLE_Z + sz / 2 + 0.25), sx * 0.12, y1 - y0, 0.5);
+    }
+    steel.box(tx, TOWER_H + 2, zs * CABLE_Z, 11, 4, 8.6);       // 缆索鞍座罩
+    steel.box(tx, TOWER_H + 4.6, zs * CABLE_Z, 6, 1.4, 4.6);
+  }
+  const inner = CABLE_Z * 2 - 8;
+  for (const [y, h] of [[DECK_Y + 46, 7], [DECK_Y + 90, 8], [DECK_Y + 126, 9], [TOWER_H - 6, 12]]) {
+    steel.box(tx, y, 0, 7, h, inner);
+    steel.box(tx, y - h / 2 - 1.2, 0, 7.6, 1.2, inner);         // 横梁下缘的装饰线脚
+    for (let k = -2; k <= 2; k++) steel.box(tx + 3.6, y, k * inner / 6, 0.4, h * 0.8, 0.9);
+  }
+  for (const xs of [-1, 1]) {   // 桥面以下的交叉斜撑
+    steel.beam(V3(tx + xs * 2, 14, -CABLE_Z + 4), V3(tx + xs * 2, DECK_Y - 9, CABLE_Z - 4), 2.2);
+    steel.beam(V3(tx + xs * 2, 14, CABLE_Z - 4), V3(tx + xs * 2, DECK_Y - 9, -CABLE_Z + 4), 2.2);
+  }
+  steel.box(tx, DECK_Y - 9, 0, 6, 3, inner);
+  concrete.box(tx, 0, 0, 46, 26, 56);                              // 桥墩及护舷
+  concrete.box(tx, 13.5, 0, 40, 1.5, 50);
+}
+buildTower(-HALF_MAIN);
+buildTower(HALF_MAIN);
+
+// ---------- 桥台与锚碇：混凝土塔墩（Pylon）接住边跨主缆 ----------
+for (const xs of [-1, 1]) {
+  const ax = xs * END;
+  concrete.box(ax + xs * 22, ANCHOR_Y / 2, 0, 44, ANCHOR_Y + 6, 44);
+  for (const zs of [-1, 1]) {
+    concrete.box(ax, DECK_Y + 16, zs * CABLE_Z, 9, 32, 9);
+    concrete.box(ax, DECK_Y + 33, zs * CABLE_Z, 7, 2.5, 7);
+  }
+}
+
+// ---------- 加劲桁架：桥面下 7.6 米高的华伦桁架 ----------
+const P = 7.62, TOP_Y = DECK_Y - 0.9, BOT_Y = DECK_Y - 7.6, TZ = 13.6;
+for (const zs of [-1, 1]) {
+  const z = zs * TZ;
+  steel.box(0, TOP_Y, z, END * 2, 0.9, 0.9);
+  steel.box(0, BOT_Y, z, END * 2, 0.9, 0.9);
+  let k = 0;
+  for (let x = -END; x < END; x += P, k++) {
+    steel.beam(V3(x, BOT_Y, z), V3(x, TOP_Y, z), 0.45);
+    const up = k % 2 === 0;
+    steel.beam(V3(x, up ? BOT_Y : TOP_Y, z), V3(x + P, up ? TOP_Y : BOT_Y, z), 0.45);
+  }
+}
+for (let x = -END; x < END; x += P * 2) {     // 底部横梁与水平剪刀撑
+  steel.box(x, BOT_Y, 0, 0.6, 0.6, TZ * 2);
+  steel.beam(V3(x, BOT_Y, -TZ), V3(x + P * 2, BOT_Y, TZ), 0.35);
+}
+
+// ---------- 桥面：沥青路面、人行道、栏杆、标线 ----------
+{
+  const road = new THREE.Mesh(new THREE.BoxGeometry(ROAD_LEN * 2, 0.8, 19.6), roadMat);
+  road.position.set(0, DECK_Y - 0.4, 0);
+  road.receiveShadow = true; road.castShadow = true;
+  scene.add(road);
+  for (const zs of [-1, 1]) {
+    concrete.box(0, DECK_Y - 0.15, zs * 11.8, ROAD_LEN * 2, 1.1, 4.4);   // 人行道
+    steel.box(0, DECK_Y + 1.1, zs * 13.9, ROAD_LEN * 2, 0.12, 0.12);    // 外侧扶手
+    steel.box(0, DECK_Y + 0.45, zs * 9.85, ROAD_LEN * 2, 0.5, 0.3);     // 车行道护栏
+  }
+  for (let x = -ROAD_LEN; x < ROAD_LEN; x += 2.4) for (const zs of [-1, 1]) steel.box(x, DECK_Y + 0.6, zs * 13.9, 0.08, 1.1, 0.08);
+  concrete.box(0, DECK_Y + 0.4, 0, ROAD_LEN * 2, 0.8, 0.5);           // 可移动中央隔离带（"拉链"护栏）
+
+  const mark = new BoxBatch();
+  for (let x = -ROAD_LEN; x < ROAD_LEN; x += 12) for (const z of [-6.3, -3.2, 3.2, 6.3]) mark.box(x, DECK_Y + 0.02, z, 3.5, 0.04, 0.15);
+  for (const z of [-9.3, 9.3]) mark.box(0, DECK_Y + 0.02, z, ROAD_LEN * 2, 0.04, 0.15);
+  mark.build(new THREE.MeshStandardMaterial({ color: 0xe8e8e0, roughness: 0.6 }), false);
+
+  // 引道高架墩柱：落到地形上
+  for (let x = END + 20; x < ROAD_LEN; x += 32) for (const xs of [-1, 1]) {
+    const g = Math.max(terrainHeight(xs * x, 0), -10);
+    if (g < DECK_Y - 3) for (const zs of [-1, 1]) concrete.box(xs * x, (g + DECK_Y) / 2 - 1, zs * 7, 2.4, DECK_Y - g, 2.4);
+  }
+}
+
+// ---------- 夜间照明：桥面路灯、塔顶航空障碍灯 ----------
+const lampMat = new THREE.MeshBasicMaterial({ color: 0xffb35c });
+const lampPoolMat = new THREE.MeshBasicMaterial({ color: 0xff9a40, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+{
+  const poles = new BoxBatch(), heads = new BoxBatch(), pools = [];
+  for (let x = -ROAD_LEN + 25; x < ROAD_LEN; x += 50) for (const zs of [-1, 1]) {
+    poles.box(x, DECK_Y + 5, zs * 10.3, 0.25, 10, 0.25);
+    poles.box(x, DECK_Y + 10, zs * 9.2, 0.2, 0.2, 2.3);
+    heads.box(x, DECK_Y + 9.8, zs * 8.2, 1.1, 0.35, 0.6);
+    pools.push(new THREE.Matrix4().makeScale(26, 1, 15).setPosition(x, DECK_Y + 0.06, zs * 6));
+  }
+  poles.build(new THREE.MeshStandardMaterial({ color: 0x6b6b6b, metalness: 0.6, roughness: 0.4 }), false);
+  heads.build(lampMat, false);
+  // 路灯在路面上的暖色光斑（加色混合，夜间才显现）
+  const poolMesh = new THREE.InstancedMesh(new THREE.CircleGeometry(0.5, 24).rotateX(-Math.PI / 2), lampPoolMat, pools.length);
+  pools.forEach((m, i) => poolMesh.setMatrixAt(i, m));
+  scene.add(poolMesh);
+}
+const beaconMat = new THREE.MeshBasicMaterial({ color: 0xff2020 });
+for (const tx of [-HALF_MAIN, HALF_MAIN]) for (const zs of [-1, 1]) {
+  const b = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 8), beaconMat);
+  b.position.set(tx, TOWER_H + 6.3, zs * CABLE_Z);
+  scene.add(b);
+}
+
+steel.build(bridgeMat);
+concrete.build(concreteMat);
+
+// ================= 滚动平流雾 =================
+// 两层叠加：① 贴着海面的雾毯（水平噪声层，从太平洋侧向海湾推进）；② 大量缓慢翻滚的雾团公告板
+const NOISE_GLSL = `
+  float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
+    return mix(mix(h21(i), h21(i+vec2(1,0)), f.x), mix(h21(i+vec2(0,1)), h21(i+vec2(1,1)), f.x), f.y); }
+  float fbm(vec2 p){ float s = 0.0, a = 0.5; mat2 r = mat2(0.8, -0.6, 0.6, 0.8);
+    for (int i = 0; i < 5; i++){ s += a * vn(p); p = r * p * 2.03; a *= 0.5; } return s; }`;
+const fogUniforms = {
+  uTime: { value: 0 }, uDrift: { value: 0 }, uDensity: { value: 0.6 },
+  uLit: { value: new THREE.Color(1, 1, 1) }, uShade: { value: new THREE.Color(0.6, 0.65, 0.7) },
+  uSceneFog: { value: new THREE.Color() }, uSceneDensity: { value: 0.0003 }
+};
+
+// ---- ① 雾毯：多层半透明噪声平面 ----
+const fogBankMat = new THREE.ShaderMaterial({
+  uniforms: { ...fogUniforms, uLayer: { value: 0 } },
+  transparent: true, depthWrite: false, side: THREE.DoubleSide,
+  vertexShader: `varying vec3 vWorld; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vWorld = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  fragmentShader: `uniform float uTime, uDrift, uDensity, uLayer, uSceneDensity; uniform vec3 uLit, uShade, uSceneFog; varying vec3 vWorld;
+    ${NOISE_GLSL}
+    void main(){
+      vec2 p = vWorld.xz;
+      vec2 q = vec2(p.x, p.y - uDrift * (1.0 + uLayer * 0.15)) * 0.0016 + uLayer * 3.7;
+      // 域扭曲让雾的边缘像真实平流雾一样卷曲翻涌
+      vec2 warp = vec2(fbm(q + vec2(0.0, uTime * 0.01)), fbm(q + vec2(5.2, 1.3) - uTime * 0.012));
+      float n = fbm(q * 1.6 + warp * 1.8);
+      // 雾锋：太平洋一侧（-z）浓，越往海湾越薄；密度滑块推动雾锋位置
+      float front = mix(-2200.0, 2600.0, uDensity);
+      float mask = 1.0 - smoothstep(front - 1600.0, front + 400.0, p.y + (warp.x - 0.5) * 900.0);
+      float a = smoothstep(0.42 - uDensity * 0.18, 0.72, n) * mask;
+      a *= 1.0 - smoothstep(4200.0, 6000.0, length(p));
+      float camD = abs(cameraPosition.y - vWorld.y);
+      // 掠射角观察时叠层平面会显出条纹，按视线与平面夹角淡出
+      float graze = abs(normalize(cameraPosition - vWorld).y);
+      a *= smoothstep(2.0, 40.0, camD) * smoothstep(0.03, 0.25, graze) * (0.55 - uLayer * 0.12);
+      vec3 col = mix(uShade, uLit, smoothstep(0.35, 0.9, n));
+      float dist = length(cameraPosition - vWorld);
+      col = mix(col, uSceneFog, 1.0 - exp(-uSceneDensity * uSceneDensity * dist * dist * 0.5));
+      gl_FragColor = vec4(col, a * min(1.0, uDensity * 1.6));
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`
+});
+const fogLayers = [];
+[[10, 0], [34, 1], [62, 2], [95, 3]].forEach(([y, i]) => {
+  const m = fogBankMat.clone();
+  m.uniforms = { ...fogUniforms, uLayer: { value: i } };
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(12000, 12000).rotateX(-Math.PI / 2), m);
+  plane.position.y = y;
+  plane.renderOrder = 2 + i;
+  plane.frustumCulled = false;
+  scene.add(plane);
+  fogLayers.push(plane);
+});
+
+// ---- ② 雾团：面向相机的软边公告板，在着色器里随风漂移、自转、起伏 ----
+const PUFFS = 1400, FOG_RANGE = 7000;
+const puffGeo = new THREE.InstancedBufferGeometry().copy(new THREE.PlaneGeometry(1, 1));
+puffGeo.instanceCount = PUFFS;
+{
+  const off = new Float32Array(PUFFS * 3), ss = new Float32Array(PUFFS * 2);
+  for (let i = 0; i < PUFFS; i++) {
+    const nearBridge = Math.random() < 0.55;
+    off[i * 3] = nearBridge ? rand(-1300, 1300) : rand(-3800, 3800);
+    off[i * 3 + 1] = Math.pow(Math.random(), 1.8) * 190 + 8;   // 大部分雾团贴近海面，少量爬到塔腰
+    off[i * 3 + 2] = rand(-FOG_RANGE / 2, FOG_RANGE / 2);
+    ss[i * 2] = rand(90, 300);
+    ss[i * 2 + 1] = Math.random();
+  }
+  puffGeo.setAttribute('aOffset', new THREE.InstancedBufferAttribute(off, 3));
+  puffGeo.setAttribute('aSS', new THREE.InstancedBufferAttribute(ss, 2));
+}
+const puffMat = new THREE.ShaderMaterial({
+  uniforms: { ...fogUniforms, uRange: { value: FOG_RANGE } },
+  transparent: true, depthWrite: false,
+  vertexShader: `attribute vec3 aOffset; attribute vec2 aSS;
+    uniform float uTime, uDrift, uRange, uDensity;
+    varying vec2 vUv; varying float vAlpha, vSeed; varying vec3 vWorld;
+    void main(){
+      vec3 c = aOffset;
+      c.z = mod(c.z + uDrift * (0.8 + aSS.y * 0.4) + 0.5 * uRange, uRange) - 0.5 * uRange;
+      c.x += sin(uTime * 0.04 + aSS.y * 6.28) * 60.0;
+      c.y += sin(uTime * 0.09 + aSS.y * 17.0) * 6.0;
+      // 雾锋之后的雾团才可见，与雾毯的推进保持一致
+      float front = mix(-2200.0, 2600.0, uDensity);
+      float edge = smoothstep(-0.5 * uRange, -0.5 * uRange + 800.0, c.z) * (1.0 - smoothstep(front - 900.0, front + 500.0, c.z));
+      float r = aSS.y * 6.2831 + uTime * 0.025 * (aSS.y - 0.5);
+      vec2 p = mat2(cos(r), -sin(r), sin(r), cos(r)) * position.xy;
+      float s = aSS.x * (1.0 + 0.15 * sin(uTime * 0.07 + aSS.y * 9.0));
+      // 在世界空间里沿相机的右/上方向展开公告板，便于按片元高度做淡出
+      vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+      vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+      vec3 w = c + right * p.x * s * 1.6 + up * p.y * s;
+      vec4 mv = viewMatrix * vec4(w, 1.0);
+      vAlpha = edge * smoothstep(15.0, 160.0, -mv.z);
+      vUv = uv; vSeed = aSS.y; vWorld = w;
+      gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader: `uniform float uTime, uDensity, uSceneDensity; uniform vec3 uLit, uShade, uSceneFog;
+    varying vec2 vUv; varying float vAlpha, vSeed; varying vec3 vWorld;
+    ${NOISE_GLSL}
+    void main(){
+      vec2 c = vUv - 0.5;
+      float r = length(c * vec2(1.0, 1.25)) * 2.0;
+      float n = fbm(vUv * 3.0 + vSeed * 31.0 + vec2(uTime * 0.02, 0.0));
+      float a = smoothstep(1.0, 0.15, r + (n - 0.5) * 0.9);
+      a *= smoothstep(0.0, 35.0, vWorld.y);   // 贴近海面处柔和淡出，避免与水面相交出现硬边
+      if (a < 0.003) discard;
+      vec3 col = mix(uShade, uLit, clamp(vUv.y * 0.7 + n * 0.5, 0.0, 1.0));
+      float dist = length(cameraPosition - vWorld);
+      col = mix(col, uSceneFog, 1.0 - exp(-uSceneDensity * uSceneDensity * dist * dist * 0.5));
+      gl_FragColor = vec4(col, a * vAlpha * 0.22 * smoothstep(0.0, 0.25, uDensity));
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`
+});
+const puffs = new THREE.Mesh(puffGeo, puffMat);
+puffs.frustumCulled = false;
+puffs.renderOrder = 10;
+scene.add(puffs);
+
+// ================= 车流：每条车道独立运行智能驾驶员模型（IDM），自然产生跟驰与走走停停 =================
+// 6 条车道，每向 3 条；车辆靠右行驶：北行（+x）在 +z 一侧，南行（-x）在 -z 一侧
+const LANES = [-7.85, -4.75, -1.6, 1.6, 4.75, 7.85].map(z => ({ z, dir: z > 0 ? 1 : -1, cars: [] }));
+const L = ROAD_LEN * 2;
+const TYPES = [
+  { w: 0.62, len: 4.6, wid: 1.85, h: 0.85, cl: 0.52, ch: 0.6, co: -0.15, v: 1.0 },   // 轿车
+  { w: 0.20, len: 4.9, wid: 2.0, h: 1.05, cl: 0.62, ch: 0.75, co: -0.1, v: 0.97 },   // SUV
+  { w: 0.08, len: 6.0, wid: 2.1, h: 1.6, cl: 0.32, ch: 0.9, co: 0.32, v: 0.9 },      // 皮卡/厢式货车
+  { w: 0.05, len: 12.5, wid: 2.55, h: 2.4, cl: 0.96, ch: 0.7, co: 0.0, v: 0.82 },    // 金门公交大巴
+  { w: 0.05, len: 16.0, wid: 2.55, h: 3.0, cl: 0.13, ch: 0.9, co: 0.43, v: 0.78 }    // 半挂卡车
+];
+const CAR_COLORS = [0xf2f2f2, 0x1c1c1e, 0x8a8f96, 0xc3c7cc, 0x24406e, 0x8c1c1c, 0x2f5a3a, 0xd9c7a0, 0x3a6ea5, 0xe0b020, 0x5a5f66];
+const MAX_CARS = 620;
+const cars = [];
+function pickType() { let r = Math.random(); for (const t of TYPES) { if ((r -= t.w) <= 0) return t; } return TYPES[0]; }
+function makeCar(lane, s) {
+  const type = pickType();
+  return { lane, s, v: 18, v0: rand(20, 26) * type.v, type, color: new THREE.Color(CAR_COLORS[(Math.random() * CAR_COLORS.length) | 0]), brake: 0, mood: Math.random() * 100 };
+}
+function addCar() {
+  // 放进当前最空的车道的最大空隙中
+  let best = null, bestGap = -1;
+  for (const lane of LANES) {
+    const cs = lane.cars;
+    if (cs.length === 0) { best = { lane, s: Math.random() * L }; bestGap = L; continue; }
+    for (let i = 0; i < cs.length; i++) {
+      const a = cs[i], b = cs[(i + 1) % cs.length];
+      let gap = b.s - a.s; if (gap <= 0) gap += L;
+      if (gap > bestGap) { bestGap = gap; best = { lane, s: (a.s + gap / 2) % L }; }
+    }
+  }
+  if (!best || bestGap < 30) return false;
+  const car = makeCar(best.lane, best.s);
+  best.lane.cars.push(car); cars.push(car);
+  best.lane.cars.sort((a, b) => a.s - b.s);
+  return true;
+}
+function removeCar() {
+  const car = cars.pop(); if (!car) return;
+  const cs = car.lane.cars; cs.splice(cs.indexOf(car), 1);
+}
+function syncCarCount() {
+  let guard = 0;
+  while (cars.length < params.cars && guard++ < 50 && addCar());
+  while (cars.length > params.cars) removeCar();
+}
+
+const T_HEAD = 1.4, S0 = 2.5, A_MAX = 1.6, B_COMF = 2.4;
+function stepTraffic(dt, time) {
+  for (const lane of LANES) {
+    const cs = lane.cars, n = cs.length;
+    if (!n) continue;
+    cs.sort((a, b) => a.s - b.s);
+    for (let i = 0; i < n; i++) {
+      const c = cs[i], lead = cs[(i + 1) % n];
+      let raw = lead.s - c.s; if (i === n - 1) raw += L;   // 车道首尾相接成环
+      const gap = Math.max(raw - (lead.type.len + c.type.len) / 2, 0.1);
+      // 偶发轻踩刹车，在车流密时会放大成"幽灵堵车"波
+      if (c.brake <= 0 && Math.random() < dt * 0.012) c.brake = rand(1.5, 3.5);
+      c.brake -= dt;
+      const v0 = c.v0 * (c.brake > 0 ? 0.55 : 1);
+      const dv = c.v - lead.v;
+      const sStar = S0 + Math.max(0, c.v * T_HEAD + c.v * dv / (2 * Math.sqrt(A_MAX * B_COMF)));
+      let acc = A_MAX * (1 - Math.pow(c.v / v0, 4) - (sStar / gap) ** 2);
+      acc = Math.max(acc, -8);
+      c.acc = acc;
+      c.v = Math.max(0, c.v + acc * dt);
+      c.s = (c.s + c.v * dt) % L;
+    }
+  }
+}
+
+// ---- 车辆渲染：车身 / 深色部件（车窗 + 底盘）/ 前灯 / 尾灯 / 夜间灯光投影 ----
+const carBody = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
+  new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.5 }), MAX_CARS);
+const carDark = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
+  new THREE.MeshStandardMaterial({ color: 0x15181c, roughness: 0.15, metalness: 0.8 }), MAX_CARS * 2);
+const headMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const tailMat = new THREE.MeshBasicMaterial({ color: 0xff2010 });
+const carHead = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), headMat, MAX_CARS * 2);
+const carTail = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), tailMat, MAX_CARS * 2);
+const beamMat = new THREE.ShaderMaterial({
+  uniforms: { uOpacity: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform float uOpacity; varying vec2 vUv;
+    void main(){ float a = (1.0 - vUv.x) * smoothstep(0.0, 0.5, 1.0 - abs(vUv.y - 0.5) * 2.0 * (0.6 + vUv.x)); gl_FragColor = vec4(vec3(1.0, 0.9, 0.7) * a * uOpacity, 1.0); }`
+});
+const carBeam = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).translate(0.5, 0, 0).rotateX(-Math.PI / 2), beamMat, MAX_CARS);
+carBody.castShadow = true;
+[carBody, carDark, carHead, carTail, carBeam].forEach(m => { m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m); });
+
+const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _yAxis = new THREE.Vector3(0, 1, 0);
+const qN = new THREE.Quaternion(), qS = new THREE.Quaternion().setFromAxisAngle(_yAxis, Math.PI);
+function carWorldX(c) { return c.lane.dir > 0 ? -ROAD_LEN + c.s : ROAD_LEN - c.s; }
+function place(mesh, i, x, y, z, sx, sy, sz, q) { _p.set(x, y, z); _s.set(sx, sy, sz); mesh.setMatrixAt(i, _m.compose(_p, q, _s)); }
+function updateCarMeshes() {
+  const n = cars.length;
+  for (let i = 0; i < n; i++) {
+    const c = cars[i], t = c.type, d = c.lane.dir, q = d > 0 ? qN : qS;
+    const x = carWorldX(c), z = c.lane.z;
+    // 在桥两端的引道尽头缩放淡出，避免瞬移穿帮
+    const edge = Math.min(c.s, L - c.s);
+    const k = smooth(0, 40, edge) || 0.0001;
+    const y = DECK_Y + 0.35;
+    place(carBody, i, x, y, z, t.len * k, t.h * k, t.wid * k, q);
+    place(carDark, i * 2, x + d * t.co * t.len, y + t.h * k * 0.98, z, t.len * t.cl * k, t.ch * k, t.wid * 0.92 * k, q);
+    place(carDark, i * 2 + 1, x, DECK_Y, z, t.len * 0.92 * k, 0.4 * k, t.wid * 0.96 * k, q);
+    const fx = x + d * t.len * 0.5 * k, bx = x - d * t.len * 0.5 * k, ly = y + Math.min(t.h * 0.55, 0.6) * k;
+    for (const side of [0, 1]) {
+      const lz = z + (side ? 1 : -1) * t.wid * 0.36 * k;
+      place(carHead, i * 2 + side, fx, ly, lz, 0.1 * k, 0.18 * k, 0.32 * k, q);
+      place(carTail, i * 2 + side, bx, ly + 0.05, lz, 0.1 * k, (c.acc < -1 ? 0.3 : 0.18) * k, 0.3 * k, q);
+    }
+    _p.set(fx, DECK_Y + 0.05, z); _s.set(28 * k * d, 1, 4.2 * k);
+    carBeam.setMatrixAt(i, _m.compose(_p, qN, _s));
+    carBody.setColorAt(i, c.color);
+  }
+  carBody.count = n; carDark.count = n * 2; carHead.count = n * 2; carTail.count = n * 2; carBeam.count = n;
+  for (const m of [carBody, carDark, carHead, carTail, carBeam]) m.instanceMatrix.needsUpdate = true;
+  if (carBody.instanceColor) carBody.instanceColor.needsUpdate = true;
+}
+syncCarCount();
+for (let i = 0; i < 400; i++) stepTraffic(0.1, 0);   // 预热，让车流先达到稳态分布
+
+// ================= 后期：辉光（让夜间车灯、路灯、塔顶灯发光） =================
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.4, 0.5, 0.92);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+// ================= 昼夜：时间轴 0→1 依次为 清晨 → 正午 → 黄昏 → 夜晚 → 回到清晨 =================
+const KEYS = [ // t, 天顶, 地平线, 太阳色, 太阳强度, 太阳高度角(度), 环境光, 夜晚系数
+  [0.00, 0x6f8fb8, 0xf0c49a, 0xffc890, 1.6, 8, 0.55, 0],
+  [0.22, 0x3f78c2, 0xc9dcec, 0xfff4e6, 3.0, 55, 1.0, 0],
+  [0.45, 0x47689a, 0xffa860, 0xff8a40, 1.8, 4, 0.55, 0],
+  [0.55, 0x1d2a4c, 0xd2645a, 0xff5a30, 0.5, -3, 0.25, 0.6],
+  [0.70, 0x050913, 0x1a2333, 0x8899cc, 0.12, -30, 0.1, 1],
+  [0.90, 0x0a1224, 0x3a3a52, 0x8899cc, 0.15, -10, 0.12, 0.9],
+  [1.00, 0x6f8fb8, 0xf0c49a, 0xffc890, 1.6, 8, 0.55, 0]
+];
+const env = { zenith: new THREE.Color(), horizon: new THREE.Color(), sun: new THREE.Color(), sunI: 1, elev: 0, amb: 1, night: 0, sunDir: new THREE.Vector3() };
+const _ca = new THREE.Color(), _cb = new THREE.Color();
+function sampleEnv(t) {
+  let i = 0; while (i < KEYS.length - 2 && t > KEYS[i + 1][0]) i++;
+  const a = KEYS[i], b = KEYS[i + 1], u = smooth(a[0], b[0], t);
+  const lerpC = (out, ia) => out.copy(_ca.set(a[ia])).lerp(_cb.set(b[ia]), u);
+  lerpC(env.zenith, 1); lerpC(env.horizon, 2); lerpC(env.sun, 3);
+  env.sunI = a[4] + (b[4] - a[4]) * u; env.elev = a[5] + (b[5] - a[5]) * u;
+  env.amb = a[6] + (b[6] - a[6]) * u; env.night = a[7] + (b[7] - a[7]) * u;
+  // 太阳从东（海湾）升起、西（太平洋，-z）落下；夜间改为月光
+  const az = THREE.MathUtils.degToRad(t < 0.6 ? 150 - t * 260 : 200);
+  const el = THREE.MathUtils.degToRad(Math.max(env.elev, env.night > 0.5 ? 35 : env.elev));
+  env.sunDir.set(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az)).normalize();
+  if (env.elev < 0 && env.night <= 0.5) env.sunDir.y = Math.max(env.sunDir.y, 0.02);
+}
+function timeLabel(t) {
+  const hour = (6 + t * 24) % 24, h = Math.floor(hour), m = Math.floor((hour - h) * 60);
+  const name = hour < 5 ? '深夜' : hour < 8 ? '清晨' : hour < 11 ? '上午' : hour < 14 ? '正午' : hour < 17 ? '午后' : hour < 19.5 ? '黄昏' : '夜晚';
+  return `${name} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+const fogColor = new THREE.Color(), _tmp = new THREE.Color();
+function applyEnv() {
+  sampleEnv(params.time);
+  const sunVisible = env.elev > -2 ? 1 : 0;
+  skyUniforms.zenith.value.copy(env.zenith);
+  skyUniforms.horizon.value.copy(env.horizon);
+  skyUniforms.sunColor.value.copy(env.sun).multiplyScalar(sunVisible);
+  skyUniforms.sunDir.value.copy(env.sunDir);
+  skyUniforms.night.value = env.night;
+
+  sun.color.copy(env.sun);
+  sun.intensity = env.sunI;
+  sun.position.copy(env.sunDir).multiplyScalar(3000);
+  hemi.intensity = 0.25 + env.amb * 0.75;
+  hemi.color.copy(env.zenith).lerp(_tmp.set(0xffffff), 0.5);
+
+  // 雾的颜色：贴近地平线色，雾越浓越偏灰白
+  fogColor.copy(env.horizon).lerp(_tmp.set(0xb8c2ca).multiplyScalar(0.25 + env.amb * 0.75), 0.35 + params.fog * 0.4);
+  scene.fog.color.copy(fogColor);
+  scene.fog.density = 0.00012 + params.fog * params.fog * 0.00062;
+  renderer.toneMappingExposure = 0.75 + env.amb * 0.35;
+
+  waterUniforms.uZenith.value.copy(env.zenith);
+  waterUniforms.uHorizon.value.copy(env.horizon);
+  waterUniforms.uLightDir.value.copy(env.sunDir);
+  waterUniforms.uLightColor.value.copy(env.sun).multiplyScalar(env.night > 0.5 ? 0.25 : sunVisible);
+  waterUniforms.uAmbient.value = 0.15 + env.amb * 0.85;
+  waterUniforms.uFogColor.value.copy(fogColor);
+  waterUniforms.uFogDensity.value = scene.fog.density;
+
+  fogUniforms.uLit.value.copy(env.sun).lerp(_tmp.set(0xffffff), 0.55).multiplyScalar(0.25 + env.amb * 0.8);
+  fogUniforms.uShade.value.copy(env.zenith).lerp(_tmp.set(0x8a939c), 0.6).multiplyScalar(0.3 + env.amb * 0.6);
+  fogUniforms.uSceneFog.value.copy(fogColor);
+  fogUniforms.uSceneDensity.value = scene.fog.density;
+  fogUniforms.uDensity.value = params.fog;
+
+  const n = env.night;
+  bridgeMat.emissiveIntensity = n * 0.08;          // 夜间桥塔泛光照明
+  lampMat.color.setScalar(0.25 + n * 0.75).multiply(_tmp.set(0xffb35c)).multiplyScalar(1 + n * 2);
+  lampPoolMat.opacity = n * 0.22;
+  headMat.color.setScalar(0.5 + n * 3);
+  tailMat.color.set(0xff2010).multiplyScalar(0.6 + n * 3);
+  beamMat.uniforms.uOpacity.value = n * 0.35;
+  cityLightMat.opacity = smooth(0.2, 0.7, n);
+  bloom.strength = 0.15 + n * 0.75;
+  bloom.threshold = 0.92 - n * 0.2;
+  document.getElementById('vTime').textContent = timeLabel(params.time);
+}
+
+// ================= 镜头模式 =================
+let camMode = 'free', followCar = null;
+const camGoal = new THREE.Vector3(), lookGoal = new THREE.Vector3();
+document.querySelectorAll('[data-cam]').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('[data-cam]').forEach(b => b.classList.toggle('on', b === btn));
+  camMode = btn.dataset.cam;
+  controls.enabled = camMode === 'free';
+  if (camMode === 'car') followCar = cars.find(c => c.lane.dir > 0 && c.s < 300 && c.type.len < 6) || cars[0];
+  if (camMode === 'free') { controls.target.set(0, 90, 0); camera.position.set(-1050, 150, 760); }
+}));
+function updateCamera(t, dt) {
+  if (camMode === 'free') { controls.update(); return; }
+  const k = 1 - Math.exp(-dt * 3);
+  if (camMode === 'orbit') {
+    const a = t * 0.05;
+    camGoal.set(Math.cos(a) * 1500, 140 + Math.sin(t * 0.11) * 70, Math.sin(a) * 1300);
+    lookGoal.set(0, 100, 0);
+  } else if (camMode === 'tower') {
+    camGoal.set(-HALF_MAIN - 30, TOWER_H + 30, -CABLE_Z - 40);
+    lookGoal.set(HALF_MAIN, DECK_Y, 0);
+  } else if (camMode === 'car' && followCar) {
+    if (!cars.includes(followCar)) followCar = cars[0];
+    if (!followCar) return;
+    const d = followCar.lane.dir, x = carWorldX(followCar);
+    if (Math.min(followCar.s, L - followCar.s) < 60 && followCar.s > L / 2) {   // 到头了，换一辆
+      followCar = cars.find(c => c.lane.dir > 0 && c.s < 200) || followCar;
+    }
+    camGoal.set(x - d * 16, DECK_Y + 5.5, followCar.lane.z + 2.5);
+    lookGoal.set(x + d * 60, DECK_Y + 10, followCar.lane.z);
+    camera.position.lerp(camGoal, 1 - Math.exp(-dt * 8));
+    camera.lookAt(lookGoal);
+    return;
+  }
+  camera.position.lerp(camGoal, k);
+  controls.target.lerp(lookGoal, k);
+  camera.lookAt(controls.target);
+}
+
+// ================= 控件 =================
+const fmt = {
+  fog: v => `${Math.round(v * 100)}%`, wind: v => `${v.toFixed(2)}×`, wave: v => `${v.toFixed(2)}×`,
+  cars: v => `${v} 辆`, speed: v => `${v.toFixed(2)}×`, time: () => ''
+};
+for (const key of Object.keys(fmt)) {
+  const el = document.getElementById(key), out = document.getElementById('v' + key[0].toUpperCase() + key.slice(1));
+  const set = () => { params[key] = parseFloat(el.value); if (key !== 'time') out.textContent = fmt[key](params[key]); };
+  el.addEventListener('input', set); set();
+}
+const panel = document.getElementById('panel'), toggle = document.getElementById('toggle');
+toggle.addEventListener('click', () => { panel.classList.toggle('collapsed'); toggle.textContent = panel.classList.contains('collapsed') ? '显示面板' : '隐藏面板'; });
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+});
+
+// ================= 主循环 =================
+const clock = new THREE.Clock(), statsEl = document.getElementById('stats');
+let elapsed = 0, drift = 0, frames = 0, fpsT = 0, fps = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  elapsed += dt;
+  drift += dt * 14 * params.wind;             // 雾从太平洋（-z）吹向海湾（+z）
+
+  syncCarCount();
+  const sub = Math.ceil(params.speed * 2);
+  for (let i = 0; i < sub; i++) stepTraffic(dt * params.speed / sub, elapsed);
+  updateCarMeshes();
+
+  waterUniforms.uTime.value = elapsed;
+  waterUniforms.uAmp.value = params.wave;
+  fogUniforms.uTime.value = elapsed;
+  fogUniforms.uDrift.value = drift;
+  beaconMat.color.setRGB(Math.sin(elapsed * 3) > 0.2 ? 3 : 0.2, 0.05, 0.05);   // 塔顶航空障碍灯闪烁
+
+  applyEnv();
+  sky.position.copy(camera.position);
+  updateCamera(elapsed, dt);
+  composer.render();
+
+  frames++; fpsT += dt;
+  if (fpsT > 0.5) {
+    fps = Math.round(frames / fpsT); frames = 0; fpsT = 0;
+    const avg = cars.length ? cars.reduce((s, c) => s + c.v, 0) / cars.length * 3.6 : 0;
+    statsEl.innerHTML = `帧率 ${fps} FPS<br>桥上车辆 ${cars.length} 辆<br>平均车速 ${avg.toFixed(0)} km/h`;
+  }
+}
+applyEnv();
+animate();
+const loading = document.getElementById('loading');
+loading.style.opacity = 0;
+setTimeout(() => loading.remove(), 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { works } from '../../data/works';
+import { site, url } from '../../lib/site';
+export function getStaticPaths() { return works.map(work => ({ params: { slug: work.slug }, props: { work } })); }
+const { work } = Astro.props;
+const next = works[(works.findIndex(item => item.slug === work.slug) + 1) % works.length];
+const commands = 'npm ci\nnpm run dev';
+---
+<Layout title={work.title} description={work.description} image={work.cover}>
+  <main id="main" class="shell detail-page">
+    <a class="back-link" href={url('#works')}>← 返回创作档案</a>
+    <div class="detail-heading"><div><div class="eyebrow">EXPERIMENT {work.number} / {work.english}</div><h1>{work.title}</h1><p>{work.description}</p></div><span class="detail-number">{work.number}</span></div>
+    <div class="detail-visual"><img src={url(`covers/${work.cover}`)} alt={`${work.title}的实际运行画面`} width="1440" height="900" /><a class="button button-light" href={url(`demos/${work.slug}/index.html`)} target="_blank" rel="noreferrer">打开交互演示 ↗</a></div>
+    <div class="detail-columns"><aside class="project-facts"><span class="eyebrow">PROJECT NOTES</span><dl><dt>作品类型</dt><dd>{work.category}</dd><dt>技术与形式</dt><dd>{work.tools.join(' / ')}</dd><dt>提示词状态</dt><dd>按成品重建 · 非原始记录</dd><dt>生成模型</dt><dd>未核实，不作推定</dd><dt>授权状态</dt><dd>原作品授权待作者确认</dd></dl><a class="button button-dark" href={url(`demos/${work.slug}/index.html`)} target="_blank" rel="noreferrer">在线体验 ↗</a><a class="button button-outline" href={url(`downloads/${work.slug}.html`)} download={`${work.slug}.html`}>下载 HTML 源码 ↓</a>{site.repository && <a class="text-link" href={`${site.repository}/tree/main/projects/${work.slug}`} target="_blank" rel="noreferrer">在 GitHub 查看 ↗</a>}</aside>
+    <div class="project-content"><section><h2><span>01</span> 怎么体验</h2><p>{work.controls}</p><div class="notice">{work.notes}</div></section>
+      <section id="prompt"><div class="content-heading"><h2><span>02</span> 提示词档案</h2><button type="button" class="copy-button" data-copy>复制提示词 ⧉</button></div><p class="prompt-disclaimer">这是一份依据现有作品整理的<strong>复现参考</strong>，不是当时的原始输入。模型、版本与随机性会影响结果，不保证生成完全相同的作品。</p><pre class="prompt-block"><code data-prompt>{work.prompt}</code></pre><p class="copy-status" role="status" aria-live="polite" data-copy-status></p><a class="text-link" href={url(`downloads/${work.slug}-prompt.md`)} download>下载提示词 Markdown ↓</a></section>
+      <section><h2><span>03</span> 本次归档做了什么</h2><ol class="process-list">{work.process.map(item => <li>{item}</li>)}</ol></section>
+      <section><h2><span>04</span> 在自己的电脑运行</h2><p>下载的 HTML 是原作品副本。对于 Three.js 作品，源码仍引用外部 CDN，需要联网并通过本地 HTTP 服务打开；本站在线演示使用本地打包的依赖。推荐克隆仓库后运行整个展厅：</p><pre class="command-block"><code>{commands}</code></pre><p>然后从作品页点击「在线体验」。不要直接双击带 ES 模块的 HTML。原作品尚未指定开放许可证，当前可查看和体验不等于已授予再分发或商用许可。</p></section>
+    </div></div>
+    <a class="next-work" href={url(`works/${next.slug}/`)}><span>下一件实验 / NEXT EXPERIMENT</span><strong>{next.title}</strong><span aria-hidden="true">↗</span></a>
+  </main>
+  <script>
+    document.querySelector('[data-copy]')?.addEventListener('click', async () => {
+      const text = document.querySelector('[data-prompt]')?.textContent || '';
+      const status = document.querySelector('[data-copy-status]');
+      try { await navigator.clipboard.writeText(text); if (status) status.textContent = '已复制复现参考提示词。'; }
+      catch { if (status) status.textContent = '复制未成功，请选择上方文本复制，或下载 Markdown 文件。'; }
+    });
+  </script>
+</Layout>

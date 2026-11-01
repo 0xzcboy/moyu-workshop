@@ -1,0 +1,22 @@
+{
+  "name": "ai-creative-lab",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "astro build",
+    "capture:covers": "node scripts/capture-covers.mjs",
+    "prebuild": "node scripts/prepare-demos.mjs",
+    "dev": "astro dev --host 127.0.0.1",
+    "predev": "node scripts/prepare-demos.mjs",
+    "test": "playwright test",
+    "preview": "astro preview --host 127.0.0.1"
+  },
+  "private": true,
+  "devDependencies": {
+    "@playwright/test": "^1.56.0"
+  },
+  "dependencies": {
+    "astro": "^7.4.4",
+    "three": "0.160.0"
+  }
+}

@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>雨中站台 · 10 秒 MV</title>
+<style>
+  html,body{margin:0;height:100%;background:#12162a;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  canvas{width:min(100vw,177.78vh);height:min(56.25vw,100vh);display:block;cursor:pointer}
+</style>
+</head>
+<body>
+<canvas id="c" width="1280" height="720" role="img"
+  aria-label="动画 MV《雨中站台》：雨夜站台上，黄色纸箱小人把红伞递给蓝色小人，自己走进雨中登上火车，在车窗写下保重，火车开走，两人含泪挥手"></canvas>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const W = 1280, H = 720, DUR = 10, GY = 440; // GY: 站台边缘
+const FONT = "'Microsoft YaHei Light','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif";
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = k => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+
+// 固定种子的伪随机，保证每帧形状一致
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+// 剪纸效果：纯色填充 + 柔和投影
+function paper(draw, fill, sh = 6) {
+  ctx.save();
+  ctx.fillStyle = fill;
+  ctx.shadowColor = 'rgba(18,20,44,.38)';
+  ctx.shadowOffsetX = sh * .4; ctx.shadowOffsetY = sh; ctx.shadowBlur = sh * 1.2;
+  ctx.beginPath(); draw(); ctx.fill();
+  ctx.restore();
+}
+
+// ---------- 纸云 ----------
+const clouds = [];
+[['#6f7ba4', 70, .9], ['#8a87b4', 125, 1], ['#a29bc4', 180, 1.12]].forEach(([col, y, s], L) => {
+  for (let i = 0; i < 4; i++) {
+    const bumps = [], n = 4 + Math.floor(rnd() * 3);
+    for (let j = 0; j < n; j++) bumps.push([j * 38 * s + rnd() * 10, -rnd() * 24 * s, (24 + rnd() * 22) * s]);
+    clouds.push({ col, y: y + rnd() * 30, x: i * 480 + rnd() * 200, v: 5 + L * 4, bumps });
+  }
+});
+function drawClouds(t) {
+  clouds.forEach(c => {
+    const x = ((c.x + t * c.v) % 1900 + 1900) % 1900 - 400;
+    paper(() => {
+      c.bumps.forEach(([bx, by, r]) => { ctx.moveTo(x + bx + r, c.y + by); ctx.arc(x + bx, c.y + by, r, 0, Math.PI * 2); });
+      const last = c.bumps[c.bumps.length - 1];
+      ctx.rect(x, c.y - 6, last[0], 26);
+    }, c.col, 5);
+  });
+}
+
+// ---------- 蓝调天空 + 城市剪影 ----------
+function drawSky(t) {
+  const g = ctx.createLinearGradient(0, 0, 0, GY);
+  g.addColorStop(0, '#232d4c'); g.addColorStop(.55, '#4b5787'); g.addColorStop(1, '#8a82ae');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, GY + 10);
+  drawClouds(t);
+  seed = 99;
+  [['#5b6392', 300], ['#444b77', 338]].forEach(([col, base]) => {
+    paper(() => {
+      ctx.moveTo(0, GY); let x = 0;
+      while (x < W) { const w = 40 + rnd() * 70, h = 30 + rnd() * 70; ctx.lineTo(x, base - h); ctx.lineTo(x + w, base - h); x += w; }
+      ctx.lineTo(W, GY);
+    }, col, 4);
+  });
+  // 远处零星窗灯
+  for (let i = 0; i < 26; i++) {
+    const x = rnd() * W, y = 290 + rnd() * 60;
+    ctx.fillStyle = `rgba(255,214,140,${.25 + .2 * Math.sin(t * 2 + i)})`;
+    ctx.fillRect(x, y, 4, 5);
+  }
+}
+// ---------- 火车（站台后方） ----------
+const TX = 230, TY = 250, TW = 1500, TH = 180;
+function drawTrain(t, off, writeK, yellowIn) {
+  const x0 = TX + off;
+  // 车身
+  paper(() => { ctx.roundRect(x0, TY, TW, TH, [26, 26, 6, 6]); }, '#3e5a6e', 8);
+  ctx.fillStyle = '#2f475a'; ctx.fillRect(x0, TY + 118, TW, 16);
+  ctx.fillStyle = '#d9b45a'; ctx.fillRect(x0, TY + 112, TW, 5);
+  // 车门
+  ctx.fillStyle = '#334c5f'; ctx.fillRect(x0 + 100, TY + 24, 70, TH - 24);
+  ctx.fillStyle = 'rgba(255,215,140,.55)'; ctx.fillRect(x0 + 112, TY + 36, 46, 56);
+  // 车窗
+  for (let i = 0; i < 9; i++) {
+    const wx = x0 + 200 + i * 145, wy = TY + 30;
+    ctx.fillStyle = '#f2c878'; ctx.fillRect(wx, wy, 110, 70);
+    if (i === 0) {
+      if (yellowIn > 0) {
+        // 窗内的黄小人
+        ctx.save(); ctx.globalAlpha = yellowIn;
+        ctx.beginPath(); ctx.rect(wx, wy, 110, 70); ctx.clip();
+        drawHead(wx + 62, wy + 62, 0.62, '#e8c35a', t, t > 7.4 ? 1 : 0);
+        if (t > 7.2) { // 窗内挥手
+          const a = Math.sin(t * 9) * .4;
+          ctx.save(); ctx.translate(wx + 28, wy + 70); ctx.rotate(-.3 + a);
+          ctx.fillStyle = '#d8b04a'; ctx.fillRect(-5, -44, 10, 44); ctx.restore();
+        }
+        ctx.restore();
+      }
+      // 起雾 + 写字（字迹处透出暖光）
+      ctx.fillStyle = 'rgba(150,160,195,.6)'; ctx.fillRect(wx, wy, 110, 70);
+      if (writeK > 0) {
+        ctx.save();
+        ctx.beginPath(); ctx.rect(wx, wy, 14 + 90 * writeK, 70); ctx.clip();
+        ctx.font = `400 40px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(255,220,150,.9)'; ctx.shadowBlur = 10;
+        ctx.fillStyle = '#fff3d2'; ctx.fillText('保重', wx + 55, wy + 36);
+        ctx.restore();
+        // 字下流下的水痕
+        ctx.strokeStyle = 'rgba(255,226,166,.6)'; ctx.lineWidth = 1.5;
+        [30, 52, 80].forEach((dx, k) => {
+          const len = clamp(writeK * 1.4 - k * .2) * 22;
+          ctx.beginPath(); ctx.moveTo(wx + dx, wy + 48); ctx.lineTo(wx + dx, wy + 48 + len); ctx.stroke();
+        });
+      }
+    } else {
+      ctx.fillStyle = 'rgba(205,212,232,.35)'; ctx.fillRect(wx, wy, 110, 70);
+    }
+  }
+  // 车头
+  paper(() => { ctx.roundRect(x0 - 40, TY + 20, 60, TH - 20, [30, 0, 0, 6]); }, '#c8443c', 5);
+  ctx.fillStyle = '#ffe9b0'; ctx.beginPath(); ctx.arc(x0 - 22, TY + 120, 9, 0, 7); ctx.fill();
+}
+
+// ---------- 纸箱小人 ----------
+function drawHead(x, y, s, col, t, crying) {
+  const hw = 64 * s, hh = 52 * s, top = y - hh;
+  paper(() => ctx.rect(x - hw / 2, top, hw, hh), col, 5 * s);
+  // 纸箱折痕与封口胶带
+  ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(x - hw / 2, top, hw, 6 * s);
+  ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(x - 6 * s, top, 12 * s, 14 * s);
+  // 下垂的眉眼
+  ctx.strokeStyle = '#2b2a3a'; ctx.lineWidth = 2.4 * s; ctx.lineCap = 'round';
+  [-1, 1].forEach(d => {
+    const ex = x + d * 13 * s, ey = top + 28 * s;
+    ctx.beginPath(); ctx.moveTo(ex - 7 * s * d, ey - 11 * s); ctx.lineTo(ex + 6 * s * d, ey - 8 * s); ctx.stroke();
+    ctx.beginPath(); ctx.arc(ex, ey, 3.2 * s, 0, 7); ctx.fillStyle = '#2b2a3a'; ctx.fill();
+    if (crying) { // 泪滴循环滑落
+      const p = ((t * .9 + (d > 0 ? .5 : 0)) % 1);
+      ctx.fillStyle = 'rgba(170,215,255,.95)';
+      ctx.beginPath(); ctx.ellipse(ex + 1 * d, ey + 6 * s + p * 22 * s, 2.4 * s, 3.6 * s, 0, 0, 7); ctx.fill();
+    }
+  });
+  ctx.beginPath(); ctx.arc(x, top + 44 * s, 6 * s, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+}
+// 身体：feet=(x,y)，hands 为 {l,r} 手部坐标（null 则自然下垂）
+function drawFigure(x, y, s, col, dark, t, o) {
+  const step = o.walk ? Math.sin(o.walk) * 7 * s : 0;
+  ctx.fillStyle = dark;
+  ctx.fillRect(x - 14 * s - step, y - 30 * s, 10 * s, 30 * s);
+  ctx.fillRect(x + 4 * s + step, y - 30 * s, 10 * s, 30 * s);
+  paper(() => ctx.rect(x - 25 * s, y - 90 * s, 50 * s, 62 * s), col, 5 * s);
+  ctx.fillStyle = 'rgba(0,0,0,.1)'; ctx.fillRect(x - 25 * s, y - 60 * s, 50 * s, 3 * s);
+  ctx.strokeStyle = dark; ctx.lineWidth = 9 * s; ctx.lineCap = 'round';
+  [['l', -1], ['r', 1]].forEach(([k, d]) => {
+    const sx = x + d * 22 * s, sy = y - 82 * s;
+    const h = o[k] || [sx + d * 8 * s, sy + 46 * s];
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(h[0], h[1]); ctx.stroke();
+  });
+  drawHead(x, y - 88 * s, s, col, t, o.cry);
+}
+
+function drawUmbrella(hx, hy, tilt) {
+  ctx.save(); ctx.translate(hx, hy); ctx.rotate(tilt);
+  ctx.strokeStyle = '#3a2a2a'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -150);
+  ctx.moveTo(0, 0); ctx.arc(-9, 0, 9, 0, Math.PI); ctx.stroke(); // 伞柄弯钩
+  const R = 125, cy = -150;
+  paper(() => {
+    ctx.moveTo(-R, cy);
+    ctx.arc(0, cy, R, Math.PI, 0);
+    for (let i = 4; i > 0; i--) { const x1 = -R + (i - 1) * R / 2; ctx.quadraticCurveTo(x1 + R / 4, cy - 16, x1, cy); }
+  }, '#c9383a', 8);
+  ctx.fillStyle = 'rgba(255,255,255,.12)';
+  ctx.beginPath(); ctx.moveTo(0, cy - R); ctx.arc(0, cy, R, -Math.PI / 2, -Math.PI * .22); ctx.lineTo(0, cy); ctx.fill();
+  ctx.fillStyle = '#3a2a2a'; ctx.fillRect(-2, cy - R - 12, 4, 12);
+  ctx.restore();
+}
+
+// ---------- 时间轴：返回角色状态 ----------
+const FEET = 612, S = 1.3;
+function actors(t) {
+  const pass = ease(seg(t, 2, 3.4));               // 递伞
+  const back = ease(seg(t, 3.6, 5.3));             // 黄小人退进雨中
+  const hx = lerp(658, 684, pass), hy = 515 - Math.sin(pass * Math.PI) * 10;
+  const yx = lerp(608, 335, back), yy = lerp(FEET, 532, back), ys = lerp(S, .95, back);
+  const yAlpha = 1 - seg(t, 5.0, 5.5);
+  const yHand = t < 3.3 ? { r: [hx - 6, hy + 4] } : (t < 3.9 ? { r: [lerp(hx, yx + 40, seg(t, 3.3, 3.9)), hy + 30] } : {});
+  const wave = t > 7.4 ? [782 + Math.sin(t * 9) * 18, 420 - Math.abs(Math.cos(t * 9)) * 14] : null;
+  const bHand = { l: t > 2.3 ? [hx + 6, hy + 4] : null, r: wave };
+  return { hx, hy, tilt: lerp(-.08, .1, pass),
+    yellow: { x: yx, y: yy, s: ys, a: yAlpha, o: { ...yHand, walk: back > 0 && back < 1 ? t * 11 : 0, cry: t > 3.3 } },
+    blue: { x: 704, y: FEET, s: S, o: { ...bHand, cry: t > 4.4 } } };
+}
+
+function drawActors(t, A) {
+  ctx.save(); ctx.globalAlpha *= A.yellow.a;
+  if (A.yellow.a > 0) drawFigure(A.yellow.x, A.yellow.y, A.yellow.s, '#e8c35a', '#a8842e', t, A.yellow.o);
+  ctx.restore();
+  drawFigure(A.blue.x, A.blue.y, A.blue.s, '#6f9fd6', '#3f6593', t, A.blue.o);
+  drawUmbrella(A.hx, A.hy, A.tilt);
+}
+// ---------- 站台、路灯与倒影 ----------
+const LAMPS = [130, 375, 960, 1200];
+function drawPlatform(t) {
+  const g = ctx.createLinearGradient(0, GY, 0, H);
+  g.addColorStop(0, '#3a3f63'); g.addColorStop(1, '#262a47');
+  ctx.fillStyle = g; ctx.fillRect(0, GY, W, H - GY);
+  ctx.fillStyle = '#e2c25c'; ctx.fillRect(0, GY + 6, W, 7);           // 黄色安全线
+  ctx.fillStyle = '#4c5279'; ctx.fillRect(0, GY - 6, W, 12);           // 站台边沿
+  // 湿地倒影：暖黄长条 + 水波抖动
+  LAMPS.forEach((x, i) => {
+    for (let k = 0; k < 14; k++) {
+      const y = GY + 20 + k * 18, w = 26 - k * 1.1 + Math.sin(t * 5 + k + i) * 5;
+      ctx.fillStyle = `rgba(255,205,120,${.42 - k * .027})`;
+      ctx.fillRect(x - w / 2 + Math.sin(t * 3 + k * .9) * 3, y, w, 7);
+    }
+    const rg = ctx.createRadialGradient(x, GY + 70, 5, x, GY + 70, 120);
+    rg.addColorStop(0, 'rgba(255,200,120,.22)'); rg.addColorStop(1, 'rgba(255,200,120,0)');
+    ctx.fillStyle = rg; ctx.fillRect(x - 130, GY, 260, 200);
+  });
+}
+function drawLamps(t) {
+  LAMPS.forEach((x, i) => {
+    const flick = .9 + .1 * Math.sin(t * 13 + i * 2);
+    const rg = ctx.createRadialGradient(x, 172, 4, x, 172, 150);
+    rg.addColorStop(0, `rgba(255,214,140,${.55 * flick})`); rg.addColorStop(1, 'rgba(255,214,140,0)');
+    ctx.fillStyle = rg; ctx.fillRect(x - 150, 22, 300, 300);
+    paper(() => { ctx.rect(x - 4, 172, 8, GY - 172); ctx.rect(x - 22, 160, 44, 10); }, '#2a2e4b', 5);
+    ctx.fillStyle = '#ffd98e'; ctx.beginPath(); ctx.ellipse(x, 176, 15, 8, 0, 0, 7); ctx.fill();
+  });
+}
+
+// ---------- 细雨 ----------
+seed = 2024;
+const drops = Array.from({ length: 260 }, () => ({ x: rnd() * W * 1.2, y: rnd() * H, v: 520 + rnd() * 380, l: 10 + rnd() * 16, a: .18 + rnd() * .35 }));
+const splashes = Array.from({ length: 40 }, () => ({ x: rnd() * W, y: GY + 20 + rnd() * (H - GY - 30), p: rnd() }));
+function drawRain(t) {
+  ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+  drops.forEach(d => {
+    const y = (d.y + t * d.v) % (H + 40) - 20, x = (d.x - t * d.v * .12) % (W * 1.2);
+    ctx.strokeStyle = `rgba(210,220,245,${d.a})`;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - d.l * .12, y + d.l); ctx.stroke();
+  });
+  splashes.forEach(s => {
+    const p = (s.p + t * 1.3) % 1;
+    ctx.strokeStyle = `rgba(210,220,245,${.45 * (1 - p)})`;
+    ctx.beginPath(); ctx.ellipse(s.x, s.y, 3 + p * 14, 1 + p * 4, 0, 0, 7); ctx.stroke();
+  });
+}
+
+// ---------- 卡拉OK 歌词 ----------
+const LYRICS = [
+  [0.2, 2.8, '灰色的云　落在站台'],
+  [2.9, 5.2, '把伞递给你　我走进雨里'],
+  [5.3, 7.6, '车窗起了雾　写下一句保重'],
+  [7.7, 9.9, '列车开走了　雨还没有停'],
+];
+function drawLyrics(t) {
+  const L = LYRICS.find(l => t >= l[0] && t < l[1]);
+  if (!L) return;
+  const [a, b, txt] = L, k = clamp((t - a) / (b - a - .4));
+  const fade = Math.min(seg(t, a, a + .25), 1 - seg(t, b - .25, b));
+  ctx.save(); ctx.globalAlpha = fade;
+  ctx.font = `300 40px ${FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(txt).width, x = (W - w) / 2, y = 668;
+  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,22,44,.75)'; ctx.lineJoin = 'round';
+  ctx.strokeText(txt, x, y);
+  ctx.fillStyle = 'rgba(236,238,248,.92)'; ctx.fillText(txt, x, y);
+  ctx.save(); ctx.beginPath(); ctx.rect(x - 4, y - 30, (w + 8) * k, 60); ctx.clip();
+  ctx.fillStyle = '#ffcf6e'; ctx.fillText(txt, x, y);   // 已唱部分：暖黄
+  ctx.restore();
+  ctx.font = `300 15px ${FONT}`; ctx.fillStyle = 'rgba(220,224,240,.6)';
+  ctx.fillText('♪ 雨中站台', 36, 40);
+  ctx.restore();
+}
+// ---------- 主渲染 ----------
+function render(t) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  // 镜头缓慢推近，结尾回拉
+  const z = 1 + .05 * Math.sin(Math.PI * t / DUR);
+  ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2, -H / 2);
+
+  drawSky(t);
+  const off = -Math.pow(seg(t, 7.2, 10), 2) * 1500;     // 火车加速驶离（向左）
+  const shake = t > 7.2 ? Math.sin(t * 40) * 1.2 : 0;
+  ctx.save(); ctx.translate(0, shake);
+  drawTrain(t, off, seg(t, 5.7, 7.0), seg(t, 5.3, 5.8));
+  ctx.restore();
+  drawPlatform(t);
+  drawLamps(t);
+  drawActors(t, actors(t));
+  drawRain(t);
+  ctx.restore();
+
+  // 暗角
+  const vg = ctx.createRadialGradient(W / 2, H / 2, 260, W / 2, H / 2, 800);
+  vg.addColorStop(0, 'rgba(10,12,30,0)'); vg.addColorStop(1, 'rgba(10,12,30,.6)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+
+  // 片头标题
+  const ta = Math.min(seg(t, 0, .4), 1 - seg(t, 1.6, 2.2));
+  if (ta > 0) {
+    ctx.save(); ctx.globalAlpha = ta; ctx.textAlign = 'center';
+    ctx.font = `300 64px ${FONT}`; ctx.fillStyle = '#eef0fa'; ctx.fillText('雨 中 站 台', W / 2, 120);
+    ctx.font = `300 18px ${FONT}`; ctx.fillStyle = 'rgba(230,232,248,.7)'; ctx.fillText('RAIN · PLATFORM', W / 2, 152);
+    ctx.restore();
+  }
+  drawLyrics(t);
+
+  // 黑场淡入淡出
+  const blk = Math.max(1 - seg(t, 0, .5), seg(t, 9.5, 10));
+  if (blk > 0) { ctx.fillStyle = `rgba(8,9,20,${blk})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// ---------- 声音：Web Audio 实时合成（雨声 / 钢琴 / 火车） ----------
+let ac = null, bus, verb, noiseBuf, audioT0 = 0, scheduled = -1;
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+
+function initAudio() {
+  ac = new (window.AudioContext || window.webkitAudioContext)();
+  const master = ac.createGain(); master.gain.value = .85; master.connect(ac.destination);
+  bus = ac.createGain(); bus.gain.value = 0; bus.connect(master);   // 每轮淡入淡出包络
+  // 白噪声缓冲（雨、车轮共用）
+  noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+  const nd = noiseBuf.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  // 合成混响冲激响应
+  const ir = ac.createBuffer(2, ac.sampleRate * 2.6, ac.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const d = ir.getChannelData(c);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+  }
+  verb = ac.createConvolver(); verb.buffer = ir;
+  const wet = ac.createGain(); wet.gain.value = .45; verb.connect(wet); wet.connect(bus);
+  // 雨声：高通 + 带通的噪声，持续循环
+  const rain = ac.createBufferSource(); rain.buffer = noiseBuf; rain.loop = true;
+  const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
+  const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6000;
+  const rg = ac.createGain(); rg.gain.value = .16;
+  rain.connect(hp); hp.connect(lp); lp.connect(rg); rg.connect(bus); rain.start();
+  audioT0 = ac.currentTime + .08;
+}
+
+// 钢琴音色：三角波 + 泛音，快速起音、指数衰减
+function piano(time, midi, dur, vel) {
+  const f = mtof(midi), g = ac.createGain(), flt = ac.createBiquadFilter();
+  flt.type = 'lowpass'; flt.frequency.value = 2400;
+  g.gain.setValueAtTime(0, time);
+  g.gain.linearRampToValueAtTime(vel, time + .008);
+  g.gain.exponentialRampToValueAtTime(.0008, time + dur);
+  [[f, 'triangle', 1], [f * 2, 'sine', .25], [f * 3, 'sine', .08]].forEach(([fr, type, amp]) => {
+    const o = ac.createOscillator(), og = ac.createGain();
+    o.type = type; o.frequency.value = fr; og.gain.value = amp;
+    o.connect(og); og.connect(flt); o.start(time); o.stop(time + dur + .05);
+  });
+  flt.connect(g); g.connect(bus); g.connect(verb);
+}
+
+// 一段短噪声（车轮咔嗒声）
+function noiseHit(time, freq, q, vel, dur) {
+  const s = ac.createBufferSource(); s.buffer = noiseBuf;
+  const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(vel, time); g.gain.exponentialRampToValueAtTime(.0005, time + dur);
+  s.connect(f); f.connect(g); g.connect(bus);
+  s.start(time, Math.random()); s.stop(time + dur + .02);
+}
+
+// 四句歌词各对应一个和弦：Am - F - C - G
+const BARS = [
+  { at: .2, chord: [45, 52, 57, 60, 64], mel: [[76, 0], [76, .35], [74, .7], [72, 1.05], [74, 1.6], [76, 2.0]] },
+  { at: 2.9, chord: [41, 48, 53, 57, 60], mel: [[72, 0], [72, .3], [69, .6], [72, .9], [74, 1.3], [72, 1.6], [69, 1.9]] },
+  { at: 5.3, chord: [48, 55, 60, 64, 67], mel: [[76, 0], [79, .3], [76, .6], [74, .9], [72, 1.2], [74, 1.6], [76, 1.9]] },
+  { at: 7.7, chord: [43, 50, 55, 59, 62], mel: [[74, 0], [71, .35], [67, .7], [69, 1.1], [71, 1.5], [69, 1.9]] },
+];
+
+function scheduleLoop(k) {
+  const b = audioT0 + k * DUR;
+  // 整体包络，与画面黑场同步
+  bus.gain.setValueAtTime(0, b);
+  bus.gain.linearRampToValueAtTime(1, b + .5);
+  bus.gain.setValueAtTime(1, b + 9.4);
+  bus.gain.linearRampToValueAtTime(0, b + DUR - .02);
+  // 钢琴：分解和弦 + 旋律
+  BARS.forEach(bar => {
+    bar.chord.forEach((m, i) => piano(b + bar.at + i * .16, m, 2.6, i ? .07 : .1));
+    bar.mel.forEach(([m, dt], i) => piano(b + bar.at + dt, m, i === bar.mel.length - 1 ? 2.2 : 1.1, .14));
+  });
+  // 火车鸣笛（7.2s）
+  const w = b + 7.2;
+  [523, 659].forEach(fr => {
+    const o = ac.createOscillator(), g = ac.createGain(), vib = ac.createOscillator(), vg = ac.createGain();
+    o.type = 'sawtooth'; o.frequency.value = fr;
+    vib.frequency.value = 5; vg.gain.value = 4; vib.connect(vg); vg.connect(o.frequency);
+    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1500;
+    g.gain.setValueAtTime(0, w); g.gain.linearRampToValueAtTime(.035, w + .08);
+    g.gain.setValueAtTime(.035, w + .7); g.gain.linearRampToValueAtTime(0, w + 1.1);
+    o.connect(f); f.connect(g); g.connect(bus); g.connect(verb);
+    o.start(w); vib.start(w); o.stop(w + 1.2); vib.stop(w + 1.2);
+  });
+  // 低频轰鸣：先变大，随火车远去变小
+  const rum = ac.createBufferSource(); rum.buffer = noiseBuf; rum.loop = true;
+  const rf = ac.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 160;
+  const rgn = ac.createGain();
+  rgn.gain.setValueAtTime(0, w); rgn.gain.linearRampToValueAtTime(.5, w + 1);
+  rgn.gain.linearRampToValueAtTime(0, b + DUR);
+  rum.connect(rf); rf.connect(rgn); rgn.connect(bus);
+  rum.start(w); rum.stop(b + DUR);
+  // 车轮咔嗒：间隔越来越短，声音越来越远
+  let tc = w + .3, gap = .55;
+  while (tc < b + DUR - .1) {
+    const far = 1 - (tc - w) / (b + DUR - w);
+    noiseHit(tc, 1800, 4, .35 * far, .06);
+    noiseHit(tc + gap * .25, 1500, 4, .25 * far, .06);
+    tc += gap; gap = Math.max(.16, gap * .86);
+  }
+}
+
+// 循环播放；首次点击开启声音并从头播放，之后点击暂停/继续；?t=秒 可定格某帧
+const fixed = new URLSearchParams(location.search).get('t');
+let start = performance.now(), paused = false, pauseAt = 0;
+cv.addEventListener('click', () => {
+  if (fixed !== null) return;
+  if (!ac) {
+    initAudio(); paused = false;
+    // 独立于画面帧的调度：切到后台标签时声音也能持续，始终提前排好下一轮
+    const tick = () => {
+      const k = Math.floor(Math.max(0, ac.currentTime - audioT0) / DUR);
+      while (scheduled < k + 1) scheduleLoop(++scheduled);
+    };
+    tick(); setInterval(tick, 500);
+    return;
+  }
+  paused = !paused;
+  paused ? ac.suspend() : ac.resume();
+});
+function loop(now) {
+  let t;
+  if (fixed !== null) t = +fixed;
+  else if (ac) {
+    // 有声音后以音频时钟为准，画面和声音不会漂移
+    t = Math.max(0, ac.currentTime - audioT0) % DUR;
+  } else t = ((now - start) / 1000) % DUR;
+  render(t);
+  if (!ac && fixed === null) {   // 点击开启声音的提示
+    ctx.save(); ctx.font = `300 18px ${FONT}`; ctx.textAlign = 'right';
+    ctx.fillStyle = `rgba(255,214,140,${.6 + .3 * Math.sin(now / 400)})`;
+    ctx.fillText('点击画面开启声音 ♪', W - 36, 40);
+    ctx.restore();
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
