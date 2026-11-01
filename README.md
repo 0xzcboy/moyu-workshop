@@ -58,7 +58,7 @@ npm run preview
 1. 原仓库为 `0xzcboy/moyu-workshop`，更新前检查素材和敏感信息。若另行授权原作品、提示词或封面，同步更新 `LICENSE`、`THIRD_PARTY_NOTICES.md` 和页面说明。
 2. 推送项目到 `main` 分支（不要上传 `node_modules/`、`.env` 或私密素材）。
 3. 仓库 Settings → Pages 的 Source 应为 GitHub Actions。
-4. 执行 `.github/workflows/pages.yml`。工作流从 Pages 配置取得域名和子路径，适配用户主页及项目仓库路径；自动生成 GitHub 入口。
+4. 执行 `.github/workflows/pages.yml`。工作流将站点域名固定为 `https://lab.myapi.pw`，并从 Pages 配置取得子路径；自动生成 GitHub 入口。更换域名时需同步修改工作流的 `SITE_URL`。
 5. 发布后验证首页、三个详情页、独立演示、源码下载和提示词复制。部署进度见仓库 Actions。
 
 本地模拟项目仓库路径：
