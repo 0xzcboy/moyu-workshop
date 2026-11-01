@@ -2,7 +2,7 @@
 
 一个把 AI 创作成品、可运行源码和提示词档案放在一起的静态作品展厅。
 
-[在线作品集](https://0xzcboy.github.io/moyu-workshop/) · [GitHub 仓库](https://github.com/0xzcboy/moyu-workshop)
+[在线作品集](https://lab.myapi.pw/) · [GitHub 仓库](https://github.com/0xzcboy/moyu-workshop)
 
 收录三件真实作品；提示词为按成品重建的复现参考，并非历史原始输入。**只有展厅新编写的代码采用 MIT；原始作品、提示词、封面和品牌 Logo 不包含在 MIT 授权中。** 查看源码不等于获得再分发或商用许可。
 
