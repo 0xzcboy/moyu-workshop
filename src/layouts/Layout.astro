@@ -11,7 +11,7 @@ const pageTitle = title === site.name ? `${site.name} · ${site.englishName}` : 
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#f5f3ed" />
+    <meta name="theme-color" content="#fcfcfd" />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:site_name" content={site.name} />
     <meta property="og:description" content={description} />
@@ -31,9 +31,17 @@ const pageTitle = title === site.name ? `${site.name} · ${site.englishName}` : 
         <a href={url('#works')}>作品集 <span>{String(works.length).padStart(2, '0')}</span></a>
         <a href={url('about/')}>关于这里</a>
         {site.repository ? <a class="nav-github" href={site.repository} target="_blank" rel="noreferrer">GitHub ↗</a> : <a class="nav-github" href={url('about/#open-source')}>开源说明 ↗</a>}
+        <a class="nav-myapi" href={site.myapi} target="_blank" rel="noopener" data-myapi="header"><img src={url('myapi.svg')} alt="" width="20" height="20" />MyAPI ↗</a>
       </nav>
     </header>
     <slot />
+    <aside class="myapi-promo shell" aria-label="MyAPI 推荐">
+      <a href={site.myapi} target="_blank" rel="noopener" data-myapi="footer">
+        <img src={url('myapi.svg')} alt="" width="56" height="56" />
+        <div><span>同一尾小鱼 · MYAPI</span><strong>想亲手试试 AI 创作？</strong><p>一个 API Key，接入 Claude、ChatGPT、Gemini 等主流模型，兼容 OpenAI SDK。</p></div>
+        <em>前往 myapi.pw <span aria-hidden="true">↗</span></em>
+      </a>
+    </aside>
     <footer class="site-footer shell">
       <div><a class="footer-name" href={url()}><img class="footer-logo" src={url('logo.png')} alt="" width="30" height="30" />{site.name}</a><p>灵感不止于对话框。</p></div>
       <div class="footer-right"><p>MADE WITH CURIOSITY & AI</p><span>© 2026 · 作品与提示词持续归档中</span></div>
