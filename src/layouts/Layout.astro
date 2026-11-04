@@ -21,10 +21,11 @@ const pageTitle = title === site.name ? `${site.name} · ${site.englishName}` : 
     <link rel="icon" type="image/png" sizes="256x256" href={url('logo.png')} />
     <link rel="apple-touch-icon" href={url('logo.png')} />
     <title>{pageTitle}</title>
+    <script is:inline>document.documentElement.classList.add('js')</script>
   </head>
   <body>
     <a class="skip-link" href="#main">跳到内容</a>
-    <header class="site-header shell">
+    <header class="site-header shell" data-header>
       <a class="brand" href={url()} aria-label={`${site.name}首页`}><img class="brand-logo" src={url('logo.png')} alt="" width="52" height="52" /><span>{site.name}<small>{site.englishName}</small></span></a>
       <nav aria-label="主导航">
         <a href={url('#works')}>作品集 <span>{String(works.length).padStart(2, '0')}</span></a>
@@ -37,5 +38,26 @@ const pageTitle = title === site.name ? `${site.name} · ${site.englishName}` : 
       <div><a class="footer-name" href={url()}><img class="footer-logo" src={url('logo.png')} alt="" width="30" height="30" />{site.name}</a><p>灵感不止于对话框。</p></div>
       <div class="footer-right"><p>MADE WITH CURIOSITY & AI</p><span>© 2026 · 作品与提示词持续归档中</span></div>
     </footer>
+    <script>
+      const header = document.querySelector('[data-header]');
+      let lastY = scrollY;
+      const onScroll = () => {
+        const y = scrollY;
+        header?.classList.toggle('scrolled', y > 8);
+        header?.classList.toggle('tucked', y > 240 && y > lastY && !header.contains(document.activeElement));
+        lastY = y;
+      };
+      onScroll();
+      addEventListener('scroll', onScroll, { passive: true });
+      const reveals = document.querySelectorAll('[data-reveal]');
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }), { rootMargin: '0px 0px -6% 0px' });
+        reveals.forEach(element => observer.observe(element));
+      } else reveals.forEach(element => element.classList.add('is-visible'));
+    </script>
   </body>
 </html>
