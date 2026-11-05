@@ -18,12 +18,12 @@ test('Moyu branding uses the original fish logo on every page', async ({ page, r
 
 test('gallery filters are functional and recoverable', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.work-card:visible')).toHaveCount(6);
+  await expect(page.locator('.work-card:visible')).toHaveCount(7);
   await page.getByRole('button', { name: '叙事动画' }).click();
   await expect(page.locator('.work-card:visible')).toHaveCount(1);
   await expect(page.locator('.work-card:visible')).toContainText('雨停之前');
   await page.getByRole('button', { name: '交互世界' }).click();
-  await expect(page.locator('.work-card:visible')).toHaveCount(3);
+  await expect(page.locator('.work-card:visible')).toHaveCount(4);
   await page.getByRole('button', { name: '音乐影像' }).click();
   await expect(page.locator('.work-card:visible')).toHaveCount(1);
   await expect(page.locator('.work-card:visible')).toContainText('把回忆拼好给你');
@@ -32,11 +32,11 @@ test('gallery filters are functional and recoverable', async ({ page }) => {
   await expect(page.locator('.work-card:visible')).toHaveCount(1);
   await expect(page.locator('.work-card:visible')).toContainText('可撕拉登机牌');
   await page.getByRole('button', { name: '全部作品' }).click();
-  await expect(page.locator('.work-card:visible')).toHaveCount(6);
+  await expect(page.locator('.work-card:visible')).toHaveCount(7);
 });
 
 test('every work has a real cover, demo, source and a labelled prompt', async ({ page, request }) => {
-  for (const slug of ['seasons-planet', 'golden-gate', 'rain-platform', 'sr71-blackbird']) {
+  for (const slug of ['seasons-planet', 'golden-gate', 'rain-platform', 'sr71-blackbird', 'rainy-konbini']) {
     await page.goto(`/works/${slug}/`);
     await expect(page.locator('h1')).toBeVisible();
     await expect(page.locator('.prompt-disclaimer')).toContainText('不是当时的原始输入');
@@ -92,7 +92,7 @@ test('MV has playable video and an original prompt, not fabricated source links'
 
 test('mobile pages fit the viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const route of ['/', '/works/seasons-planet/', '/works/rain-platform/', '/works/memory-pop-up-book/', '/works/tearable-boarding-pass/', '/works/sr71-blackbird/', '/about/']) {
+  for (const route of ['/', '/works/seasons-planet/', '/works/rain-platform/', '/works/memory-pop-up-book/', '/works/tearable-boarding-pass/', '/works/sr71-blackbird/', '/works/rainy-konbini/', '/about/']) {
     await page.goto(route);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await expect(page.locator('h1')).toBeVisible();
@@ -198,6 +198,29 @@ test('SR-71 runs offline with its modes and offers a standalone HTML download', 
   await expect(page.locator('#tdi')).toBeVisible();
   await page.locator('[data-view="cockpit"]').click();
   await expect(page.locator('[data-view="cockpit"]')).toHaveAttribute('aria-pressed', 'true');
+  expect(errors).toEqual([]);
+  expect(external).toEqual([]);
+});
+
+test('rainy konbini runs with local Three.js and no UI overlay', async ({ page, request }) => {
+  const source = await request.get('/downloads/rainy-konbini.html');
+  expect(createHash('sha256').update(await source.body()).digest('hex')).toBe('5aaa6ced51ec98b4b7bf2c7218e19c3e03ff43fb4d9d9012dced5dca8d8e0ce9');
+  const errors: string[] = [];
+  const external: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('request', item => { if (!item.url().startsWith('http://127.0.0.1:4321') && !item.url().startsWith('data:') && !item.url().startsWith('blob:')) external.push(item.url()); });
+  await page.goto('/demos/rainy-konbini/index.html');
+  const canvas = page.locator('canvas');
+  await expect(canvas).toBeVisible();
+  await expect(page.locator('body > :not(canvas):not(script)')).toHaveCount(0);
+  await page.waitForTimeout(1500);
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 160, box.y + box.height / 2 + 40, { steps: 8 });
+  await page.mouse.up();
+  await page.mouse.wheel(0, -400);
+  await page.waitForTimeout(500);
   expect(errors).toEqual([]);
   expect(external).toEqual([]);
 });
