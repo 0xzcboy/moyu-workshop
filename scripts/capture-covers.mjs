@@ -5,7 +5,7 @@ const origin = process.env.PREVIEW_URL || 'http://127.0.0.1:4321';
 const browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist'] });
 await mkdir('public/covers', { recursive: true });
 try {
-  for (const slug of process.argv.slice(2).length ? process.argv.slice(2) : ['seasons-planet', 'golden-gate', 'rain-platform', 'tearable-boarding-pass']) {
+  for (const slug of process.argv.slice(2).length ? process.argv.slice(2) : ['seasons-planet', 'golden-gate', 'rain-platform', 'tearable-boarding-pass', 'sr71-blackbird']) {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -32,6 +32,11 @@ try {
       await page.waitForTimeout(1000);
       // Only the captured image hides the editor; the published demo keeps it.
       await page.addStyleTag({ content: '.dialkit-root{display:none!important}' });
+    } else if (slug === 'sr71-blackbird') {
+      // Let the opening camera move finish before capturing.
+      await page.waitForTimeout(5000);
+      await page.addStyleTag({ content: '#hotspots,.hint,.bar,.src-btn{display:none!important}' });
+      await page.waitForTimeout(300);
     } else { await page.waitForTimeout(1000); }
     if (errors.length) throw new Error(`${slug}: ${errors.join('; ')}`);
     await page.screenshot({ path: `public/covers/${slug}.jpg`, type: 'jpeg', quality: 90 });

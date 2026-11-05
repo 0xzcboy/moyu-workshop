@@ -18,12 +18,12 @@ test('Moyu branding uses the original fish logo on every page', async ({ page, r
 
 test('gallery filters are functional and recoverable', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.work-card:visible')).toHaveCount(5);
+  await expect(page.locator('.work-card:visible')).toHaveCount(6);
   await page.getByRole('button', { name: '叙事动画' }).click();
   await expect(page.locator('.work-card:visible')).toHaveCount(1);
   await expect(page.locator('.work-card:visible')).toContainText('雨停之前');
   await page.getByRole('button', { name: '交互世界' }).click();
-  await expect(page.locator('.work-card:visible')).toHaveCount(2);
+  await expect(page.locator('.work-card:visible')).toHaveCount(3);
   await page.getByRole('button', { name: '音乐影像' }).click();
   await expect(page.locator('.work-card:visible')).toHaveCount(1);
   await expect(page.locator('.work-card:visible')).toContainText('把回忆拼好给你');
@@ -32,11 +32,11 @@ test('gallery filters are functional and recoverable', async ({ page }) => {
   await expect(page.locator('.work-card:visible')).toHaveCount(1);
   await expect(page.locator('.work-card:visible')).toContainText('可撕拉登机牌');
   await page.getByRole('button', { name: '全部作品' }).click();
-  await expect(page.locator('.work-card:visible')).toHaveCount(5);
+  await expect(page.locator('.work-card:visible')).toHaveCount(6);
 });
 
 test('every work has a real cover, demo, source and a labelled prompt', async ({ page, request }) => {
-  for (const slug of ['seasons-planet', 'golden-gate', 'rain-platform']) {
+  for (const slug of ['seasons-planet', 'golden-gate', 'rain-platform', 'sr71-blackbird']) {
     await page.goto(`/works/${slug}/`);
     await expect(page.locator('h1')).toBeVisible();
     await expect(page.locator('.prompt-disclaimer')).toContainText('不是当时的原始输入');
@@ -92,7 +92,7 @@ test('MV has playable video and an original prompt, not fabricated source links'
 
 test('mobile pages fit the viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const route of ['/', '/works/seasons-planet/', '/works/rain-platform/', '/works/memory-pop-up-book/', '/works/tearable-boarding-pass/', '/about/']) {
+  for (const route of ['/', '/works/seasons-planet/', '/works/rain-platform/', '/works/memory-pop-up-book/', '/works/tearable-boarding-pass/', '/works/sr71-blackbird/', '/about/']) {
     await page.goto(route);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await expect(page.locator('h1')).toBeVisible();
@@ -175,6 +175,31 @@ test('boarding pass fits a touch viewport and works without remote fonts', async
   await page.getByRole('button', { name: 'Reattach', exact: true }).tap();
   await expect(page.locator('#stub-status')).toHaveText('Stub attached');
   await context.close();
+});
+
+test('SR-71 runs offline with its modes and offers a standalone HTML download', async ({ page, request }) => {
+  await page.goto('/works/sr71-blackbird/');
+  await expect(page.locator('h1')).toHaveText('在两万四千米，看黑鸟');
+  await expect(page.locator('.project-content')).toContainText('双击即可在浏览器中离线打开');
+  await expect(page.locator('.command-block')).toHaveCount(0);
+  const source = await request.get('/downloads/sr71-blackbird.html');
+  expect(createHash('sha256').update(await source.body()).digest('hex')).toBe('3eb76e95ebddbc0bf3ac41c8c175bd3064a7e2bd191eee0b3929dddb23a732d7');
+  const errors: string[] = [];
+  const external: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('request', item => { if (!item.url().startsWith('http://127.0.0.1:4321') && !item.url().startsWith('data:')) external.push(item.url()); });
+  await page.goto('/demos/sr71-blackbird/index.html');
+  await expect(page.locator('canvas#view')).toBeVisible();
+  await page.locator('[data-setmode="inlet"]').click();
+  await page.locator('#i-mach').fill('3.2');
+  await expect(page.locator('#i-travel')).toHaveText('26.0 in');
+  await expect(page.locator('#i-beta')).toContainText('23.5');
+  await page.locator('[data-setmode="flight"]').click();
+  await expect(page.locator('#tdi')).toBeVisible();
+  await page.locator('[data-view="cockpit"]').click();
+  await expect(page.locator('[data-view="cockpit"]')).toHaveAttribute('aria-pressed', 'true');
+  expect(errors).toEqual([]);
+  expect(external).toEqual([]);
 });
 
 test('homepage loads no 3D canvas or third-party assets', async ({ page }) => {

@@ -4,7 +4,7 @@
 
 [在线作品集](https://lab.myapi.pw/) · [GitHub 仓库](https://github.com/0xzcboy/moyu-workshop)
 
-收录五件真实作品；四件浏览器作品的提示词为按成品重建的复现参考，MV 则附作者提供的原始提示词。**只有展厅新编写的代码采用 MIT；原始作品、视频、歌曲音轨、提示词、封面和品牌 Logo 不包含在 MIT 授权中。** 查看源码不等于获得再分发或商用许可。
+收录六件真实作品；五件浏览器作品的提示词为按成品重建的复现参考，MV 则附作者提供的原始提示词。**只有展厅新编写的代码采用 MIT；原始作品、视频、歌曲音轨、提示词、封面和品牌 Logo 不包含在 MIT 授权中。** 查看源码不等于获得再分发或商用许可。
 
 ![摸鱼工坊作品预览](public/covers/seasons-planet.jpg)
 
@@ -27,7 +27,7 @@ npm run build
 npm run preview
 ```
 
-构建输出在 `dist/`。首页不启动 WebGL，不加载远程字体或第三方脚本。三维演示独立打开，Three.js 依赖随站点发布，运行无需访问 unpkg。登机牌演示独立打包 React、Motion 和 DialKit；原作保留 Google Fonts 字体请求，无法连接时使用后备字体，不影响撕拉交互。
+构建输出在 `dist/`。首页不启动 WebGL，不加载远程字体或第三方脚本。三维演示独立打开，Three.js 依赖随站点发布，运行无需访问 unpkg。登机牌演示独立打包 React、Motion 和 DialKit；原作保留 Google Fonts 字体请求，无法连接时使用后备字体，不影响撕拉交互。SR-71 是自带 three.js r187 与字体的单文件 HTML，原样发布，不经过依赖替换。
 
 ## 已收录
 
@@ -37,6 +37,7 @@ npm run preview
 | 金门大桥 | Three.js 实时场景 | 按成品重建，非原始记录 |
 | 雨中站台 | Canvas / Web Audio 十秒动画 | 按成品重建，非原始记录 |
 | 可撕拉登机牌 | React / Motion 纸张交互 | 按成品重建，非原始记录 |
+| SR-71 黑鸟 | Three.js 单文件三维模型 | 按作者提供的详细提示词精简，非原始记录 |
 | 把回忆拼好给你 | 6 分 21 秒横屏 MV | 作者提供的原始提示词，仅整理断行与标点 |
 
 三维作品在电脑端体验较完整；星球原作依赖键盘行走，金门大桥原作面板较宽。展厅本身已适配手机，但没有擅自重写原作品的触屏控制。
@@ -51,7 +52,7 @@ npm run preview
 - 网页视频：`public/videos/<slug>.mp4`；MV 原片为 1080p，站内副本压缩为 720p H.264 / AAC，并启用 faststart。首页不加载视频，详情页点击后播放。
 - 展厅样式：`src/styles/global.css`。
 
-首页分类按钮与页头数量根据作品数据自动更新。准备脚本为浏览器作品生成演示与源码下载，为全部作品生成 Markdown 提示词下载。视频作品设置 `video` 路径，不生成不存在的 HTML 或源码链接；作者原始提示词设置 `promptSource: 'original'`。多文件 Vite 作品设置 `sourceFormat: 'vite'`，准备脚本独立构建并生成 ZIP；CI 需先安装项目依赖。HTML 作品若有相对引用素材，应先扩展脚本复制同目录素材。
+首页分类按钮与页头数量根据作品数据自动更新。准备脚本为浏览器作品生成演示与源码下载，为全部作品生成 Markdown 提示词下载。视频作品设置 `video` 路径，不生成不存在的 HTML 或源码链接；作者原始提示词设置 `promptSource: 'original'`。已内联全部依赖、可双击离线打开的 HTML 设置 `sourceFormat: 'standalone'`，详情页不显示本地服务命令；多文件 Vite 作品设置 `sourceFormat: 'vite'`，准备脚本独立构建并生成 ZIP；CI 需先安装项目依赖。HTML 作品若有相对引用素材，应先扩展脚本复制同目录素材。
 
 所有演示链接显式包含 `index.html`，兼容 Astro 开发服务和静态托管。归档源码保持原样；准备脚本只把生成演示里的固定 Three.js 0.160.0 CDN 地址换成本地路径。其他依赖不会自动转换，需要单独检查。
 
