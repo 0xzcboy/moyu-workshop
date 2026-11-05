@@ -5,6 +5,7 @@
   "scripts": {
     "build": "astro build",
     "capture:covers": "node scripts/capture-covers.mjs",
+    "capture:share": "node scripts/capture-share.mjs",
     "prebuild": "node scripts/prepare-demos.mjs",
     "dev": "astro dev --host 127.0.0.1",
     "predev": "node scripts/prepare-demos.mjs",

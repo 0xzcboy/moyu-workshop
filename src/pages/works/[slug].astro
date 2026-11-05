@@ -11,7 +11,7 @@ const standalone = work.sourceFormat === 'standalone';
 const commands = projectSource ? 'npm ci\nnpm run dev' : 'npm ci\nnpm ci --prefix projects/tearable-boarding-pass\nnpm run dev';
 const sourceFile = `${work.slug}.${projectSource ? 'zip' : 'html'}`;
 ---
-<Layout title={work.title} description={work.description} image={work.cover}>
+<Layout title={work.title} description={work.description} image={`covers/${work.cover}`} imageWidth={1440} imageHeight={work.video ? 810 : 900} imageAlt={`${work.title}的${work.video ? '视频截图' : '实际运行画面'}`}>
   <main id="main" class="shell detail-page">
     <a class="back-link" href={url('#works')}>← 返回创作档案</a>
     <div class="detail-heading"><div><div class="eyebrow">EXPERIMENT {work.number} / {work.english}</div><h1>{work.title}</h1><p>{work.description}</p></div><span class="detail-number">{work.number}</span></div>
