@@ -37,6 +37,10 @@ try {
       await page.waitForTimeout(5000);
       await page.addStyleTag({ content: '#hotspots,.hint,.bar,.src-btn{display:none!important}' });
       await page.waitForTimeout(300);
+    } else if (slug === 'izakaya-yozakura') {
+      await page.waitForFunction(() => !!window.__ctx);
+      await page.addStyleTag({ content: '#title,#panel,#hint,#tip,#toast{display:none!important}' });
+      await page.waitForTimeout(1000);
     } else if (slug === 'rainy-konbini') {
       // Wait for shaders, static shadows and reflections to settle.
       await page.waitForTimeout(4000);

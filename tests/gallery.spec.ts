@@ -18,12 +18,12 @@ test('Moyu branding uses the original fish logo on every page', async ({ page, r
 
 test('gallery filters are functional and recoverable', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.work-card:visible')).toHaveCount(7);
+  await expect(page.locator('.work-card:visible')).toHaveCount(8);
   await page.getByRole('button', { name: '叙事动画' }).click();
   await expect(page.locator('.work-card:visible')).toHaveCount(1);
   await expect(page.locator('.work-card:visible')).toContainText('雨停之前');
   await page.getByRole('button', { name: '交互世界' }).click();
-  await expect(page.locator('.work-card:visible')).toHaveCount(4);
+  await expect(page.locator('.work-card:visible')).toHaveCount(5);
   await page.getByRole('button', { name: '音乐影像' }).click();
   await expect(page.locator('.work-card:visible')).toHaveCount(1);
   await expect(page.locator('.work-card:visible')).toContainText('把回忆拼好给你');
@@ -32,11 +32,11 @@ test('gallery filters are functional and recoverable', async ({ page }) => {
   await expect(page.locator('.work-card:visible')).toHaveCount(1);
   await expect(page.locator('.work-card:visible')).toContainText('可撕拉登机牌');
   await page.getByRole('button', { name: '全部作品' }).click();
-  await expect(page.locator('.work-card:visible')).toHaveCount(7);
+  await expect(page.locator('.work-card:visible')).toHaveCount(8);
 });
 
 test('every work has a real cover, demo, source and a labelled prompt', async ({ page, request }) => {
-  for (const slug of ['seasons-planet', 'golden-gate', 'rain-platform', 'sr71-blackbird', 'rainy-konbini']) {
+  for (const slug of ['seasons-planet', 'golden-gate', 'rain-platform', 'sr71-blackbird', 'rainy-konbini', 'izakaya-yozakura']) {
     await page.goto(`/works/${slug}/`);
     await expect(page.locator('h1')).toBeVisible();
     await expect(page.locator('.prompt-disclaimer')).toContainText('不是当时的原始输入');
